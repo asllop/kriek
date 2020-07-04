@@ -71,10 +71,7 @@ def process_word(word):
 
 def compile_word(word):
     print("COMPILE WORD: " + word)
-    if word == '(':
-        do_openpa()
-    elif word == ')':
-        do_closepa()
+    push_to_stack(compiled_list, word)
 
 def run_word(word):
     print("RUN WORD: " + word)
@@ -98,6 +95,9 @@ def do_openpa():
     print("CONTROL WORD: ( -> START COMPILING LIST")
     global list_compilation_level
 
+    if list_compilation_level > 0:
+        push_to_stack(compiled_list, '(')
+
     list_compilation_level = list_compilation_level + 1
 
 def do_closepa():
@@ -106,7 +106,10 @@ def do_closepa():
     global compiled_list
 
     list_compilation_level = list_compilation_level - 1
-    if list_compilation_level == 0:
+
+    if list_compilation_level > 0:
+        push_to_stack(compiled_list, ')')
+    else:
         print("PUSH LIST TO STACK: ")
         print(compiled_list)
         push_to_stack(stack, compiled_list)
@@ -159,8 +162,8 @@ program = """
 
 10 20 + !
 10 VAR-A @
-( ) TUPLA @
-( 10 20 ( A B C ) D )
+( X Y ) TUPLA @
+( 10 20 ( A B ( C ) ) D )
 HOLA 'Andreu Amic, Fins aviat!' !
 """
 
