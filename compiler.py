@@ -2,8 +2,14 @@
 list_compilation_level = 0
 compiled_list = []
 
-# VM General Dictionary
-dictionary = {}
+# Global Dictionary
+global_dictionary = {}
+
+# Internal Word Dictionaries
+word_dictionaries = {}
+
+# Current Dictionary
+dictionary = global_dictionary
 
 def add_to_dictionary(d, w, v):
     d[w] = v
@@ -75,7 +81,9 @@ def compile_word(word):
 
 def run_word(word):
     print("RUN WORD: " + word)
-    #TODO: add other control words
+    #TODO: add other control words: ~ : . ^ $ (# is in compile time)
+    #TODO: add stack operators: \d \s \r \c \e
+    #TODO: add debug words: \p ?
     if word == '!':
         do_exclam()
     elif word == '@':
@@ -87,6 +95,7 @@ def run_word(word):
 
 def do_exclam():
     print("CONTROL WORD: !")
+    #TODO: send message
 
 def do_at():
     print("CONTROL WORD: @")
@@ -158,6 +167,7 @@ def vm_loop(word_list):
     print("\n\nFinished Executing.")
     print("Stack = ")
     print(stack)
+    print()
     print("Dictionary = ")
     print(dictionary)
 
