@@ -90,6 +90,9 @@ def do_exclam():
 
 def do_at():
     print("CONTROL WORD: @")
+    word = pop_from_stack(stack)
+    value = pop_from_stack(stack)
+    add_to_dictionary(dictionary, word, value)
 
 def do_openpa():
     print("CONTROL WORD: ( -> START COMPILING LIST")
@@ -152,8 +155,11 @@ def vm_loop(word_list):
         word = word_list[i]
         process_word(word)
         i = i + 1
-    print("\n\nFinished Executing. Stack = ")
+    print("\n\nFinished Executing.")
+    print("Stack = ")
     print(stack)
+    print("Dictionary = ")
+    print(dictionary)
 
 # User Program
 
