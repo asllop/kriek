@@ -1,17 +1,40 @@
-# Compilation state
+# Primitives
+
+## Integer
+
+### Message '+' of int
+def int_plus(word):
+    try: 
+        argA = int(word)
+        argB = int(pop_from_stack())
+        push_to_stack(str(argA + argB))
+    except ValueError:
+        print("Error converting to int")
+
+# VM state
+
+## Compilated Lists
 list_compilation_level = 0
 compiled_list = []
 
 def add_to_list(word):
     compiled_list.append(word)
 
-# Global Dictionary
-global_dictionary = {}
+## Dictionaries
 
-# Local Word Dictionaries
-word_dictionaries = {}
+### Global Dictionary
+global_dictionary = {
+    "INTEGER": []
+}
 
-# Current Dictionary
+### Local Word Dictionaries
+word_dictionaries = {
+    "INTEGER": {
+        '+': int_plus
+    }
+}
+
+### Current Dictionary
 dictionary = global_dictionary
 
 def add_to_dictionary(w, v):
@@ -20,7 +43,7 @@ def add_to_dictionary(w, v):
 def get_from_dictionary(w):
     return dictionary[w]
 
-# VM Stack
+## Stack
 stack = []
 
 def push_to_stack(v):
@@ -94,19 +117,39 @@ def run_word(word):
     else:
         do_normal(word)
 
-# Word Executors
+## Word Executors
 
 def do_exclam():
     print("CONTROL WORD: !")
-    #TODO: Send message:
-    #TODO: - Get from stack message and receiver
-    #TODO: - Determine the word type of receiver
-    #TODO: - Get its local dictionary
-    #TODO: - IF defined word:
-    #TODO:      - Obtain the value for the message
-    #TODO:      - Tell vm_loop to execute the value
-    #TODO: - IF internal word:
-    #TODO:      - Call internal function
+    msg = pop_from_stack()
+    recv = pop_from_stack()
+
+    if is_int(recv):
+        d = word_dictionaries['INTEGER']
+    elif is_float(recv):
+        d = word_dictionaries['FLOAT']
+    elif is_string(recv):
+        d = word_dictionaries['STRING']
+    elif is_bool(recv):
+        d = word_dictionaries['BOOLEAN']
+    else:
+        if recv in word_dictionaries:
+            d = word_dictionaries[recv]
+        else:
+            #TODO: error
+            print("ERROR: no word " + recv + " in word dictionaries")
+            return
+
+    if msg in d:
+        v = d[msg]
+        if callable(v):
+            v(recv)
+        else:
+            #TODO: execute v is defined word
+            print("IS DEFINED")
+    else:
+        print("ERROR: no message " + msg + " in word dictionary " + recv)
+        return
 
 def do_at():
     print("CONTROL WORD: @")
@@ -142,7 +185,7 @@ def do_normal(word):
     print("NORMAL WORD:  " + word)
     push_to_stack(word)
 
-# Type detectors
+## Type detectors
 
 def is_int(word):
     try: 
@@ -179,8 +222,10 @@ def vm_loop(word_list):
     print("Stack = ")
     print(stack)
     print()
-    print("Dictionary = ")
-    print(dictionary)
+    print("Global Dictionary = ")
+    print(global_dictionary)
+    print("Word Dictionaries = ")
+    print(word_dictionaries)
 
 # User Program
 
@@ -188,6 +233,7 @@ program = """
 "Això és un comentari"
 
 10 20 + !
+40 ++ !
 10 VAR-A @
 ( X Y ) TUPLA @
 ( 10 20 ( A B ( C ) ) D )
