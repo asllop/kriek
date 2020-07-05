@@ -69,6 +69,9 @@ def add_to_dictionary(w, v):
 def get_from_dictionary(w):
     return dictionary[w]
 
+def init_word_dictionary(w):
+    word_dictionaries[w] = {}
+
 ## Stack
 stack = []
 
@@ -133,61 +136,98 @@ def compile_word(word):
 
 def run_word(word):
     print("RUN WORD: " + word)
-    #TODO: add other control words: ~ : . ^ $ (# is in compile time)
-    #TODO: add stack operators: \d \s \r \c \e
-    #TODO: add debug words: \p ?
     if word == '!':
         do_exclam()
     elif word == '@':
         do_at()
+    elif word == ':':
+        do_colon()
+    elif word == '~':
+        do_tilde()
     else:
         do_normal(word)
 
 ## Word Executors
+
+def exec_word(recv, msg, d):
+    if msg in d:
+        v = d[msg]
+        if callable(v):
+            v(recv)
+        else:
+            #TODO: execute v, is defined word
+            print("IS DEFINED: " + str(v))
+    else:
+        return False
+
+    return True
 
 def do_exclam():
     print("CONTROL WORD: !")
     msg = pop_from_stack()
     recv = pop_from_stack()
 
-    # Word is defined in current dictionary, obtain its value
+    word_dict = None
+    type_dict = None
+
+    # word dictionary exist for word, get its word dictionary
+    if recv in word_dictionaries:
+        word_dict = word_dictionaries[recv]
+
+    content = recv
+    # get the content, and obtain primite type dictionary
     if recv in dictionary:
-        recv = dictionary[recv]
+        content = dictionary[recv]
 
-    if is_int(recv):
-        d = word_dictionaries['INTEGER']
-    elif is_float(recv):
-        d = word_dictionaries['FLOAT']
-    elif is_string(recv):
-        d = word_dictionaries['STRING']
-    elif is_bool(recv):
-        d = word_dictionaries['BOOLEAN']
-    elif is_list(recv):
-        d = word_dictionaries['LIST']
+    if is_int(content):
+        type_dict = word_dictionaries['INTEGER']
+    elif is_float(content):
+        type_dict = word_dictionaries['FLOAT']
+    elif is_string(content):
+        type_dict = word_dictionaries['STRING']
+    elif is_bool(content):
+        type_dict = word_dictionaries['BOOLEAN']
+    elif is_list(content):
+        type_dict = word_dictionaries['LIST']
     else:
-        if recv in word_dictionaries:
-            d = word_dictionaries[recv]
-        else:
-            #TODO: error
-            print("ERROR: no word " + recv + " in word dictionaries")
-            return
-
-    if msg in d:
-        v = d[msg]
-        if callable(v):
-            v(recv)
-        else:
-            #TODO: execute v is defined word
-            print("IS DEFINED")
-    else:
-        print("ERROR: no message " + msg + " in word dictionary " + recv)
+        #TODO: error
+        print("ERROR: Unknown type")
         return
+    
+    # If word dictionary exist, execute it
+    did_exec_msg = False
+    if word_dict != None:
+        did_exec_msg = exec_word(recv, msg, word_dict)
+    
+    # If couldn't find the msg in word, try with its primitive type
+    if did_exec_msg == False:
+        did_exec_msg = exec_word(content, msg, type_dict)
+
+    if did_exec_msg == False:
+        #TODO: error
+        print("ERROR: no message " + str(msg) + " in word " + str(recv))
+
 
 def do_at():
     print("CONTROL WORD: @")
     word = pop_from_stack()
     value = pop_from_stack()
     add_to_dictionary(word, value)
+
+def do_colon():
+    print("CONTROL WORD: :")
+    global dictionary
+    # Current dictionary is stack word's dictionary
+    word = pop_from_stack()
+    if word not in word_dictionaries:
+        init_word_dictionary(word)
+    d = word_dictionaries[word]
+    dictionary = d
+    
+def do_tilde():
+    print("CONTROL WORD: ~")
+    global dictionary
+    dictionary = global_dictionary
 
 def do_openpa():
     print("CONTROL WORD: ( -> START COMPILING LIST")
@@ -268,12 +308,30 @@ program = """
 "Això és un comentari"
 
 10 20 + !
+
 10 VAR-A @
+20 VAR-B @
+30 VAR-C @
+40 VAR-D @
+
 15 VAR-A - !
-( X Y ) TUPLA @
-TUPLA SIZE !
-( 10 20 ( A B ( C ) ) D )
+
+( 5 15 ( VAR-A VARB-B ( VAR-C ) ) VAR-D )
 'Fins aviat amics!'
+
+( VAR-A VAR-B VAR-C VAR-D ) TUPLA @
+TUPLA :
+    66 X @
+    99 Y @
+    ( 99 1 + ! ) SUMA-100 @
+~
+
+10 GLOBAL-X @
+20 GLOBAL-Y @
+
+TUPLA SIZE !
+TUPLA X !
+TUPLA SUMA-100 !
 """
 
 vm_loop(tokenize(program))
