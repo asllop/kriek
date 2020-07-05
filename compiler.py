@@ -8,8 +8,23 @@ def int_plus(word):
         argA = int(word)
         argB = int(pop_from_stack())
         push_to_stack(str(argA + argB))
-    except ValueError:
-        print("Error converting to int")
+    except Exception:
+        print("int_plus: Error converting to int")
+
+### Message '-' of int
+def int_minus(word):
+    try: 
+        argA = int(word)
+        argB = int(pop_from_stack())
+        push_to_stack(str(argB - argA))
+    except Exception:
+        print("int_minus: Error converting to int")
+
+## List
+
+### Message 'SIZE' of list
+def list_size(word):
+    push_to_stack(str(len(word)))
 
 # VM state
 
@@ -24,13 +39,24 @@ def add_to_list(word):
 
 ### Global Dictionary
 global_dictionary = {
-    "INTEGER": []
+    "INTEGER": "0",
+    "FLOAT": "0.0",
+    "STRING": "''",
+    "BOOLEAN": "NO",
+    "LIST": []
 }
 
 ### Local Word Dictionaries
 word_dictionaries = {
     "INTEGER": {
-        '+': int_plus
+        '+': int_plus,
+        '-': int_minus
+    },
+    "FLOAT": {},
+    "STRING": {},
+    "BOOLEAN": {},
+    "LIST": {
+        "SIZE": list_size
     }
 }
 
@@ -124,6 +150,10 @@ def do_exclam():
     msg = pop_from_stack()
     recv = pop_from_stack()
 
+    # Word is defined in current dictionary, obtain its value
+    if recv in dictionary:
+        recv = dictionary[recv]
+
     if is_int(recv):
         d = word_dictionaries['INTEGER']
     elif is_float(recv):
@@ -132,6 +162,8 @@ def do_exclam():
         d = word_dictionaries['STRING']
     elif is_bool(recv):
         d = word_dictionaries['BOOLEAN']
+    elif is_list(recv):
+        d = word_dictionaries['LIST']
     else:
         if recv in word_dictionaries:
             d = word_dictionaries[recv]
@@ -191,14 +223,14 @@ def is_int(word):
     try: 
         int(word)
         return True
-    except ValueError:
+    except Exception:
         return False
 
 def is_float(word):
     try: 
         float(word)
         return True
-    except ValueError:
+    except Exception:
         return False
 
 def is_string(word):
@@ -206,6 +238,9 @@ def is_string(word):
 
 def is_bool(word):
     return (word == 'YES' or word == 'NO')
+
+def is_list(word):
+    return isinstance(word, list)
 
 # VM Main Loop
 
@@ -233,11 +268,12 @@ program = """
 "Això és un comentari"
 
 10 20 + !
-40 ++ !
 10 VAR-A @
+15 VAR-A - !
 ( X Y ) TUPLA @
+TUPLA SIZE !
 ( 10 20 ( A B ( C ) ) D )
-HOLA 'Andreu Amic, Fins aviat!' !
+'Fins aviat amics!'
 """
 
 vm_loop(tokenize(program))
