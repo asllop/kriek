@@ -181,12 +181,14 @@ def run_word(word):
 def exec_word(recv, msg, d):
     if msg in d:
         v = d[msg]
-        print("CAN EXEC WORD: " + str(v))
         if callable(v):
             v(recv)
         else:
-            #TODO: execute v, is defined word
-            print("IS DEFINED: " + str(v))
+            w = v[0]
+            if is_list(w):
+                vm_loop(w)
+            else:
+                vm_loop([w])
     else:
         return False
 
@@ -323,6 +325,8 @@ def vm_loop(word_list):
         word = word_list[i]
         process_word(word)
         i = i + 1
+    
+    print("END VM LOOP")
 
 # User Program
 
@@ -361,11 +365,14 @@ TUPLA SIZE !
 TUPLA X !
 TUPLA SUMA-100 !
 
+"Use word dictionaries as a general data structure"
+"
 TUPLA : ( ) PARELLA @ ~
 TUPLA : PARELLA : 66 numA @ ~
 TUPLA : PARELLA : 11 numB @ ~
 TUPLA : PARELLA : numA numB - ! ~
 TUPLA : PARELLA : numA , numB , ~
+"
 """
 
 vm_loop(tokenize(program))
