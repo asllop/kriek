@@ -7,10 +7,7 @@ def word_or_value(word):
     if is_int(word) or is_float(word) or is_bool(word) or is_string(word) or is_list(word):
         return word
     else:
-        if word in dictionary:
-            return dictionary[word]
-        else:
-            return None
+        return get_word_value(word)
 
 ## Integer
 
@@ -53,38 +50,54 @@ def add_to_list(word):
 
 ### Global Dictionary
 global_dictionary = {
-    "INTEGER": "0",
-    "FLOAT": "0.0",
-    "STRING": "''",
-    "BOOLEAN": "NO",
-    "LIST": []
-}
-
-### Local Word Dictionaries
-word_dictionaries = {
-    "INTEGER": {
+    "INTEGER": ["0", {
         '+': int_plus,
         '-': int_minus
-    },
-    "FLOAT": {},
-    "STRING": {},
-    "BOOLEAN": {},
-    "LIST": {
+    }],
+    "FLOAT": ["0.0", {}],
+    "STRING": ["''", {}],
+    "BOOLEAN": ["NO", {}],
+    "LIST": [[], {
         "SIZE": list_size
-    }
+    }]
 }
 
 ### Current Dictionary
 dictionary = global_dictionary
 
+### Functions to operate with dictionaries
 def add_to_dictionary(w, v):
-    dictionary[w] = v
+    dictionary[w] = [v, {}]
 
-def get_from_dictionary(w):
-    return dictionary[w]
+def get_word_value(w):
+    if w in dictionary:
+        t = dictionary[w]
+        return t[0]
+    else:
+        return None
 
-def init_word_dictionary(w):
-    word_dictionaries[w] = {}
+def get_word_dictionary(w):
+    if w in dictionary:
+        t = dictionary[w]
+        return t[1]
+    else:
+        return None
+
+def exist_word_in_word_dictionary(w, wdict):
+    d = get_word_dictionary(wdict)
+    if d == None:
+        return False
+    else:
+        return w in d
+
+def move_to_word_dictionary(w):
+    global dictionary
+    d = get_word_dictionary(w)
+    if d != None:
+        dictionary = d
+    else:
+        #TODO: ERROR
+        print("ERROR: word " + w + " not found in current dictionary")
 
 ## Stack
 stack = []
@@ -166,6 +179,7 @@ def run_word(word):
 def exec_word(recv, msg, d):
     if msg in d:
         v = d[msg]
+        print("CAN EXEC WORD: " + str(v))
         if callable(v):
             v(recv)
         else:
@@ -181,49 +195,37 @@ def do_exclam():
     msg = pop_from_stack()
     recv = pop_from_stack()
 
-    word_dict = None
-    type_dict = None
+    r = False
 
-    # word dictionary exist for word, get its word dictionary
-    if recv in word_dictionaries:
-        word_dict = word_dictionaries[recv]
-
-    # get its primitive type dictionary
-    content = word_or_value(recv)
-
-    if content == None:
-        #TODO: ERROR
-        print("ERROR: receiver word is not defined in current dictionary")
-        return
-
-    if is_int(content):
-        type_dict = word_dictionaries['INTEGER']
-    elif is_float(content):
-        type_dict = word_dictionaries['FLOAT']
-    elif is_string(content):
-        type_dict = word_dictionaries['STRING']
-    elif is_bool(content):
-        type_dict = word_dictionaries['BOOLEAN']
-    elif is_list(content):
-        type_dict = word_dictionaries['LIST']
+    if exist_word_in_word_dictionary(msg, recv):
+        # msg exist inside recv, execute it
+        d = get_word_dictionary(recv)
+        r = exec_word(recv, msg, d)
     else:
-        #TODO: error
-        print("ERROR: Unknown type")
-        return
-    
-    # If word dictionary exist, execute it
-    did_exec_msg = False
-    if word_dict != None:
-        did_exec_msg = exec_word(recv, msg, word_dict)
-    
-    # If couldn't find the msg in word, try with its primitive type
-    if did_exec_msg == False:
-        did_exec_msg = exec_word(content, msg, type_dict)
+        # msg doesn't exist inside recv, try with its content primitive
+        content = word_or_value(recv)
 
-    if did_exec_msg == False:
+        # primitives are defined in the global dictionary
+        if is_int(content):
+            type_dict = global_dictionary['INTEGER'][1]
+        elif is_float(content):
+            type_dict = global_dictionary['FLOAT'][1]
+        elif is_string(content):
+            type_dict = global_dictionary['STRING'][1]
+        elif is_bool(content):
+            type_dict = global_dictionary['BOOLEAN'][1]
+        elif is_list(content):
+            type_dict = global_dictionary['LIST'][1]
+        else:
+            #TODO: error
+            print("ERROR: Unknown type")
+            return
+
+        r = exec_word(content, msg, type_dict)
+
+    if r == False:
         #TODO: error
         print("ERROR: no message " + str(msg) + " in word " + str(recv))
-
 
 def do_at():
     print("CONTROL WORD: @")
@@ -238,19 +240,9 @@ def do_at():
 
 def do_colon():
     print("CONTROL WORD: :")
-    global dictionary
-    # Current dictionary is stack word's dictionary
     word = pop_from_stack()
-    if word in dictionary:
-        if word not in word_dictionaries:
-            init_word_dictionary(word)
-        d = word_dictionaries[word]
-        dictionary = d
-    else:
-        #TODO: error
-        print("ERROR: trying to get dictionary from a word that doesn't exist")
-        return
-    
+    move_to_word_dictionary(word)
+
 def do_tilde():
     print("CONTROL WORD: ~")
     global dictionary
@@ -327,9 +319,6 @@ def vm_loop(word_list):
     print()
     print("Global Dictionary = ")
     print(global_dictionary)
-    print()
-    print("Word Dictionaries = ")
-    print(word_dictionaries)
 
 # User Program
 
@@ -367,6 +356,11 @@ TUPLA : Y X - ! ~
 TUPLA SIZE !
 TUPLA X !
 TUPLA SUMA-100 !
+
+TUPLA : SUMA-100 : 666 DIABLE @ ~
+TUPLA : SUMA-100 : DIABLE DIABLE - ! ~
 """
 
 vm_loop(tokenize(program))
+
+print(get_word_dictionary("TUPLA"))
