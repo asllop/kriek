@@ -1,24 +1,38 @@
 # Primitives
 
+## Helpers
+
+### Guarantee that word is a primite type, if it's defined, get content
+def word_or_value(word):
+    if is_int(word) or is_float(word) or is_bool(word) or is_string(word) or is_list(word):
+        return word
+    else:
+        if word in dictionary:
+            return dictionary[word]
+        else:
+            return None
+
 ## Integer
 
 ### Message '+' of int
 def int_plus(word):
     try: 
         argA = int(word)
-        argB = int(pop_from_stack())
+        argB = int(word_or_value(pop_from_stack()))
         push_to_stack(str(argA + argB))
     except Exception:
-        print("int_plus: Error converting to int")
+        #TODO: ERROR
+        print("ERROR: int_plus: error  converting to int")
 
 ### Message '-' of int
 def int_minus(word):
     try: 
         argA = int(word)
-        argB = int(pop_from_stack())
+        argB = int(word_or_value(pop_from_stack()))
         push_to_stack(str(argB - argA))
     except Exception:
-        print("int_minus: Error converting to int")
+        #TODO: ERROR
+        print("ERROR: int_minus: error converting to int")
 
 ## List
 
@@ -174,10 +188,8 @@ def do_exclam():
     if recv in word_dictionaries:
         word_dict = word_dictionaries[recv]
 
-    content = recv
-    # get the content, and obtain primite type dictionary
-    if recv in dictionary:
-        content = dictionary[recv]
+    # get its primitive type dictionary
+    content = word_or_value(recv)
 
     if is_int(content):
         type_dict = word_dictionaries['INTEGER']
@@ -320,6 +332,7 @@ program = """
 40 VAR-D @
 
 15 VAR-A - !
+VAR-A 15 - !
 
 ( 5 15 ( VAR-A VARB-B ( VAR-C ) ) VAR-D )
 'Fins aviat amics!'
@@ -337,6 +350,11 @@ TUPLA :
 TUPLA SIZE !
 TUPLA X !
 TUPLA SUMA-100 !
+
+"Operate inside a word dictionary"
+TUPLA : Y X - ! ~
+
+VAR-A VAR-D + !
 """
 
 vm_loop(tokenize(program))
