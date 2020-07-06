@@ -191,6 +191,11 @@ def do_exclam():
     # get its primitive type dictionary
     content = word_or_value(recv)
 
+    if content == None:
+        #TODO: ERROR
+        print("ERROR: receiver word is not defined in current dictionary")
+        return
+
     if is_int(content):
         type_dict = word_dictionaries['INTEGER']
     elif is_float(content):
@@ -337,6 +342,7 @@ program = """
 20 VAR-B @
 30 VAR-C @
 40 VAR-D @
+VAR-A VAR-E @
 
 15 VAR-A - !
 VAR-A 15 - !
