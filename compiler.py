@@ -219,10 +219,15 @@ def do_colon():
     global dictionary
     # Current dictionary is stack word's dictionary
     word = pop_from_stack()
-    if word not in word_dictionaries:
-        init_word_dictionary(word)
-    d = word_dictionaries[word]
-    dictionary = d
+    if word in dictionary:
+        if word not in word_dictionaries:
+            init_word_dictionary(word)
+        d = word_dictionaries[word]
+        dictionary = d
+    else:
+        #TODO: error
+        print("ERROR: trying to get dictionary from a word that doesn't exist")
+        return
     
 def do_tilde():
     print("CONTROL WORD: ~")
