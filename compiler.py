@@ -223,8 +223,13 @@ def do_exclam():
 def do_at():
     print("CONTROL WORD: @")
     word = pop_from_stack()
-    value = pop_from_stack()
-    add_to_dictionary(word, value)
+    value = word_or_value(pop_from_stack())
+    if value != None:
+        add_to_dictionary(word, value)
+    else:
+        #TODO: ERROR
+        print("ERROR: value word doesn't exist")
+        return
 
 def do_colon():
     print("CONTROL WORD: :")
@@ -310,12 +315,14 @@ def vm_loop(word_list):
         word = word_list[i]
         process_word(word)
         i = i + 1
-    print("\n\nFinished Executing.")
+    
+    print("\n\nFinished Executing.\n")
     print("Stack = ")
     print(stack)
     print()
     print("Global Dictionary = ")
     print(global_dictionary)
+    print()
     print("Word Dictionaries = ")
     print(word_dictionaries)
 
@@ -333,6 +340,7 @@ program = """
 
 15 VAR-A - !
 VAR-A 15 - !
+VAR-A VAR-D + !
 
 ( 5 15 ( VAR-A VARB-B ( VAR-C ) ) VAR-D )
 'Fins aviat amics!'
@@ -344,17 +352,15 @@ TUPLA :
     ( 99 1 + ! ) SUMA-100 @
 ~
 
+"Operate inside a word dictionary"
+TUPLA : Y X - ! ~
+
 10 GLOBAL-X @
 20 GLOBAL-Y @
 
 TUPLA SIZE !
 TUPLA X !
 TUPLA SUMA-100 !
-
-"Operate inside a word dictionary"
-TUPLA : Y X - ! ~
-
-VAR-A VAR-D + !
 """
 
 vm_loop(tokenize(program))
