@@ -171,6 +171,8 @@ def run_word(word):
         do_colon()
     elif word == '~':
         do_tilde()
+    elif word == ',':
+        do_comma()
     else:
         do_normal(word)
 
@@ -248,6 +250,12 @@ def do_tilde():
     global dictionary
     dictionary = global_dictionary
 
+def do_comma():
+    print("CONTROL WORD: ,")
+    w = pop_from_stack()
+    v = word_or_value(w)
+    push_to_stack(v)
+
 def do_openpa():
     print("CONTROL WORD: ( -> START COMPILING LIST")
     global list_compilation_level
@@ -293,7 +301,10 @@ def is_float(word):
         return False
 
 def is_string(word):
-    return (word[0] == "'" and word[-1] == "'")
+    if len(word) >= 2:
+        return (word[0] == "'" and word[-1] == "'")
+    else:
+        return False
 
 def is_bool(word):
     return (word == 'YES' or word == 'NO')
@@ -312,13 +323,6 @@ def vm_loop(word_list):
         word = word_list[i]
         process_word(word)
         i = i + 1
-    
-    print("\n\nFinished Executing.\n")
-    print("Stack = ")
-    print(stack)
-    print()
-    print("Global Dictionary = ")
-    print(global_dictionary)
 
 # User Program
 
@@ -357,10 +361,21 @@ TUPLA SIZE !
 TUPLA X !
 TUPLA SUMA-100 !
 
-TUPLA : SUMA-100 : 666 DIABLE @ ~
-TUPLA : SUMA-100 : DIABLE DIABLE - ! ~
+TUPLA : ( ) PARELLA @ ~
+TUPLA : PARELLA : 66 numA @ ~
+TUPLA : PARELLA : 11 numB @ ~
+TUPLA : PARELLA : numA numB - ! ~
+TUPLA : PARELLA : numA , numB , ~
 """
 
 vm_loop(tokenize(program))
 
+print("\n\nFinished Executing.\n")
+print("Stack = ")
+print(stack)
+print()
+print("Global Dictionary = ")
+print(global_dictionary)
+print()
+print("TUPLA Dictionary = ")
 print(get_word_dictionary("TUPLA"))
