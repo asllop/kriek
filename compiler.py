@@ -1,14 +1,5 @@
 # Primitives
 
-## Helpers
-
-### Guarantee that word is a primite type, if it's defined, get content
-def word_or_value(word):
-    if is_int(word) or is_float(word) or is_bool(word) or is_string(word) or is_list(word):
-        return word
-    else:
-        return get_word_value(word)
-
 ## Integer
 
 ### Message '+' of int
@@ -65,7 +56,7 @@ global_dictionary = {
 ### Current Dictionary
 dictionary = global_dictionary
 
-### Functions to operate with dictionaries
+### Functions to operate with dictionaries and words
 def add_to_dictionary(w, v):
     dictionary[w] = [v, {}]
 
@@ -98,6 +89,12 @@ def move_to_word_dictionary(w):
     else:
         #TODO: ERROR
         print("ERROR: word " + w + " not found in current dictionary")
+
+def word_or_value(word):
+    if is_int(word) or is_float(word) or is_bool(word) or is_string(word) or is_list(word):
+        return word
+    else:
+        return get_word_value(word)
 
 ## Stack
 stack = []
@@ -366,13 +363,13 @@ TUPLA X !
 TUPLA SUMA-100 !
 
 "Use word dictionaries as a general data structure"
-"
 TUPLA : ( ) PARELLA @ ~
 TUPLA : PARELLA : 66 numA @ ~
 TUPLA : PARELLA : 11 numB @ ~
 TUPLA : PARELLA : numA numB - ! ~
+"The comma word is not necessary, but useful. Below expressions are equivalent:"
 TUPLA : PARELLA : numA , numB , ~
-"
+TUPLA : PARELLA numA ! PARELLA numB ! ~
 """
 
 vm_loop(tokenize(program))
