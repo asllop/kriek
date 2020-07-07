@@ -22,6 +22,79 @@ def int_minus(word):
         #TODO: ERROR
         print("ERROR: int_minus: error converting to int")
 
+### Message '*' of int
+def int_mul(word):
+    try: 
+        argA = int(word)
+        argB = int(word_or_value(pop_from_stack()))
+        push_to_stack(str(argB * argA))
+    except Exception:
+        #TODO: ERROR
+        print("ERROR: int_mul: error converting to int")
+
+### Message '/' of int
+def int_div(word):
+    try: 
+        argA = int(word)
+        argB = int(word_or_value(pop_from_stack()))
+        push_to_stack(str(argB // argA))
+    except Exception:
+        #TODO: ERROR
+        print("ERROR: int_div: error converting to int")
+
+
+### Message '%' of int
+def int_mod(word):
+    try: 
+        argA = int(word)
+        argB = int(word_or_value(pop_from_stack()))
+        push_to_stack(str(argB % argA))
+    except Exception:
+        #TODO: ERROR
+        print("ERROR: int_mod: error converting to int")
+
+## Float
+
+### Message '+' of float
+def float_plus(word):
+    try: 
+        argA = float(word)
+        argB = float(word_or_value(pop_from_stack()))
+        push_to_stack(str(argA + argB))
+    except Exception:
+        #TODO: ERROR
+        print("ERROR: float_plus: error  converting to int")
+
+### Message '-' of float
+def float_minus(word):
+    try: 
+        argA = float(word)
+        argB = float(word_or_value(pop_from_stack()))
+        push_to_stack(str(argB - argA))
+    except Exception:
+        #TODO: ERROR
+        print("ERROR: float_minus: error converting to int")
+
+### Message '*' of float
+def float_mul(word):
+    try: 
+        argA = float(word)
+        argB = float(word_or_value(pop_from_stack()))
+        push_to_stack(str(argB * argA))
+    except Exception:
+        #TODO: ERROR
+        print("ERROR: float_mul: error converting to int")
+
+### Message '/' of float
+def float_div(word):
+    try: 
+        argA = float(word)
+        argB = float(word_or_value(pop_from_stack()))
+        push_to_stack(str(argB / argA))
+    except Exception:
+        #TODO: ERROR
+        print("ERROR: int_div: error converting to int")
+
 ## List
 
 ### Message 'SIZE' of list
@@ -43,9 +116,17 @@ def add_to_list(word):
 global_dictionary = {
     "INTEGER": ["0", {
         '+': int_plus,
-        '-': int_minus
+        '-': int_minus,
+        '*': int_mul,
+        '/': int_div,
+        '%': int_mod
     }],
-    "FLOAT": ["0.0", {}],
+    "FLOAT": ["0.0", {
+        '+': float_plus,
+        '-': float_minus,
+        '*': float_mul,
+        '/': float_div
+    }],
     "STRING": ["''", {}],
     "BOOLEAN": ["NO", {}],
     "LIST": [[], {

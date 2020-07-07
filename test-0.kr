@@ -40,3 +40,6 @@ TUPLA : PARELLA : numA numB - ! ~
 "The comma word is not necessary, but useful. Below expressions are equivalent:"
 TUPLA : PARELLA : numA , numB , ~
 TUPLA : PARELLA numA ! PARELLA numB ! ~
+
+7 3 / !
+7 3 % !
