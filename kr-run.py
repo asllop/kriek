@@ -106,6 +106,7 @@ def list_size(word):
 ## Compilated Lists
 list_compilation_level = 0
 compiled_list = []
+last_receiver_word = None
 
 def add_to_list(word):
     compiled_list.append(word)
@@ -184,7 +185,12 @@ def push_to_stack(v):
     stack.append(v)
 
 def pop_from_stack():
-    return stack.pop()
+    if len(stack) > 0:
+        return stack.pop()
+    else:
+        #TODO: ERROR
+        print("ERROR: stack underflow")
+        return None
 
 # VM Compiler and Executor
 def tokenize(string):
@@ -249,6 +255,8 @@ def run_word(word):
         do_colon()
     elif word == '~':
         do_tilde()
+    elif word == '.':
+        do_dot()
     elif word == ',':
         do_comma()
     else:
@@ -276,6 +284,9 @@ def do_exclam():
     print("CONTROL WORD: !")
     msg = pop_from_stack()
     recv = pop_from_stack()
+
+    global last_receiver_word
+    last_receiver_word = recv
 
     r = False
 
@@ -329,6 +340,10 @@ def do_tilde():
     print("CONTROL WORD: ~")
     global dictionary
     dictionary = global_dictionary
+
+def do_dot():
+    print("CONTROL WORD: .")
+    push_to_stack(last_receiver_word)
 
 def do_comma():
     print("CONTROL WORD: ,")

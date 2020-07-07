@@ -1,4 +1,4 @@
-"Això és un comentari"
+"This is a comment"
 
 10 20 + !
 
@@ -13,7 +13,7 @@ VAR-A 15 - !
 VAR-A VAR-D + !
 
 ( 5 15 ( VAR-A VARB-B ( VAR-C ) ) VAR-D )
-'Fins aviat amics!'
+'This is a string'
 
 ( VAR-A VAR-B VAR-C VAR-D ) TUPLA @
 TUPLA :
@@ -43,3 +43,7 @@ TUPLA : PARELLA numA ! PARELLA numB ! ~
 
 7 3 / !
 7 3 % !
+
+"The dot references to the integer value, not to the INTEGER word"
+INTEGER : ( . 1 + ! ) ++ @ ~
+100 ++ !
