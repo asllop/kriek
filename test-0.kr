@@ -45,5 +45,12 @@ TUPLA : PARELLA numA ! PARELLA numB ! ~
 7 3 % !
 
 "The dot references to the integer value, not to the INTEGER word"
-INTEGER : ( . 1 + ! ) ++ @ ~
+INTEGER : ( 1 . + ! ) ++ @ ~
 100 ++ !
+
+"Use an auxiliary word to reuse the code for both INTEGER and FLOAT. This could be done with alias also."
+( 2 . * ! ) DOUBLE @
+DOUBLE , FLOAT : *2 @ ~
+DOUBLE , INTEGER : *2 @ ~
+4.5 *2 !
+4 *2 !
