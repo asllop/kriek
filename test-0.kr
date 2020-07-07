@@ -1,0 +1,42 @@
+"Això és un comentari"
+
+10 20 + !
+
+10 VAR-A @
+20 VAR-B @
+30 VAR-C @
+40 VAR-D @
+VAR-A VAR-E @
+
+15 VAR-A - !
+VAR-A 15 - !
+VAR-A VAR-D + !
+
+( 5 15 ( VAR-A VARB-B ( VAR-C ) ) VAR-D )
+'Fins aviat amics!'
+
+( VAR-A VAR-B VAR-C VAR-D ) TUPLA @
+TUPLA :
+    66 X @
+    99 Y @
+    ( 99 1 + ! ) SUMA-100 @
+~
+
+"Operate inside a word dictionary"
+TUPLA : Y X - ! ~
+
+10 GLOBAL-X @
+20 GLOBAL-Y @
+
+TUPLA SIZE !
+TUPLA X !
+TUPLA SUMA-100 !
+
+"Use word dictionaries as a general data structure"
+TUPLA : ( ) PARELLA @ ~
+TUPLA : PARELLA : 66 numA @ ~
+TUPLA : PARELLA : 11 numB @ ~
+TUPLA : PARELLA : numA numB - ! ~
+"The comma word is not necessary, but useful. Below expressions are equivalent:"
+TUPLA : PARELLA : numA , numB , ~
+TUPLA : PARELLA numA ! PARELLA numB ! ~
