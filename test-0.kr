@@ -32,10 +32,13 @@ TUPLA SIZE !
 TUPLA X !
 TUPLA SUMA-100 !
 
-"Use word dictionaries as a general data structure"
-TUPLA : ( ) PARELLA @ ~
-TUPLA : PARELLA : 66 numA @ ~
-TUPLA : PARELLA : 11 numB @ ~
+"Use word dictionaries as data structures"
+TUPLA :
+    ( ) PARELLA @
+    PARELLA :
+        66 numA @
+        11 numB @
+~
 TUPLA : PARELLA : numA numB - ! ~
 "The comma word is not necessary, but useful. Below expressions are equivalent:"
 TUPLA : PARELLA : numA , numB , ~
@@ -54,3 +57,30 @@ DOUBLE , FLOAT : *2 @ ~
 DOUBLE , INTEGER : *2 @ ~
 4.5 *2 !
 4 *2 !
+
+"Words can be anything, even primitive types"
+( ) PROFILE @
+PROFILE :
+    'jdoe@example.com' 'user' @
+    'John' 'name' @
+    'Doe' 'surname' @
+~
+PROFILE 'user' !
+
+"Now we can change the value of word 'user'"
+PROFILE : 'john.doe@example.com' 'user' @ ~
+PROFILE 'user' !
+
+"We could also define a setter to make it more readable"
+PROFILE :
+    ( . : 'user' @ ~ ) SET-USER @
+~
+'jdoe@other.com' PROFILE SET-USER !
+PROFILE 'user' !
+
+"Or more generically, we could create a setter for all LISTs to set any pair of key-values"
+LIST :
+    ( . : @ ~ ) SET-KEY @
+~
+'any@user.com' 'user' PROFILE SET-KEY !
+PROFILE 'user' !
