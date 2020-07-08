@@ -1,0 +1,5 @@
+"Increment by N the value of a word"
+INTEGER : ( . + ! . @ ) INC @ ~
+
+"Decrement by N the value of a word"
+INTEGER : ( . \s . \s - ! \s @ ) DEC @ ~

@@ -3,7 +3,7 @@ import sys
 # Primitives
 
 #TODO - Implement messages that can't be created in Kriek, only in native code:
-# - LIST messages: WHILE, SET, GET, ADD, DEL, DO
+# - LIST messages: LOOP, SET, GET, ADD, DEL, DO
 # - STRING messages: SIZE, SET, GET, ADD, DEL
 # - BOOLEAN: AND, OR, NOT, IF, IF-ELSE
 # - ALL: TYPE (return string with primitive type)
@@ -11,10 +11,14 @@ import sys
 #TODO - Implement messages in Kriek:
 # - STRING: + (concatenate), SUB (substring), FIND, SPLIT.
 # - LIST: LOOP (using an index), SET-KEY, MAP, REDUCE
-# - INTEGER: ++, --
+# - INT & FLOAT: INC, DEC, <, =, <>
 
 #TODO: implement control words: ^ (copy), $ (return)
-#TODO: implement stack words
+#TODO: implement alias
+
+#TODO:
+# - Think about . and the inner levels
+# - Same about $
 
 """
 0 A @
@@ -22,19 +26,33 @@ import sys
 ( A B < ! ) ( A ++ ! ) WHILE !
 ( 'Is True' ) A B = ! IF !
 ( 'Is True' ) ( 'Is False' ) A B = ! IF-ELSE !
+"Loop forever"
+( X Y Z ) LOOP !
 
+"Ideas of loop and decision implementation:"
 LIST :
     (
-        DO !    "exec list with condition"
-        . \s    "get execution block"
-        IF !    "execute block if condition was YES"
+        DO !        "exec list with condition"
+        . \s        "get execution block"
+        IF !        "execute block if condition was YES"
     ) IF @
 
     (
-        \s DO ! "exec list with condition"
-        . \s    "put the else block"
+        \s DO !     "exec list with condition"
+        . \s        "put the else block"
         IF-ELSE !
     ) IF-ELSE @
+
+    "En procés, no acabat..."
+    (
+        . \s            "guarda ref de paraula actual per després"
+        (
+            \d          "duplica bloc condició"
+            .           "obté paraula actual, cos del while"
+            ( \r $ )    "en cas que la condició sigui falsa, abortarà"
+            IF-ELSE !   "envia IF al cos del while"
+        ) LOOP !
+    ) WHILE !
 ~
 
 ( A B = ! ) ( 'Is True' ) IF !
@@ -151,6 +169,23 @@ def float_bigger(word):
     except Exception:
         fail("ERROR: float_bigger: error converting to float")
 
+## Boolean
+
+### Message 'IF' of boolean
+def bool_if(word):
+    block = pop_from_stack()
+    if word == 'YES':
+        vm_loop(block)
+
+### Message 'IF-ELSE' of boolean
+def bool_ifelse(word):
+    no_block = pop_from_stack()
+    yes_block = pop_from_stack()
+    if word == 'YES':
+        vm_loop(yes_block)
+    else:
+        vm_loop(no_block)
+
 ## List
 
 ### Message 'SIZE' of list
@@ -200,7 +235,10 @@ global_dictionary = {
         '>': float_bigger
     }],
     "STRING": ["''", {}],
-    "BOOLEAN": ["NO", {}],
+    "BOOLEAN": ["NO", {
+        "IF": bool_if,
+        "IF-ELSE": bool_ifelse,
+    }],
     "LIST": [[], {
         "SIZE": list_size,
         "WHILE": list_while

@@ -99,7 +99,13 @@ PROFILE 'user' !
 100 1.0 * ! "it works"
 "100.0 1 * !" "it doesn't"
 
-INTEGER : ( 1 . + ! . @ ) INC @ ~
-
 0 cnt @
-( 10 cnt > ! ) ( cnt , cnt INC ! ) WHILE !
+( 10 cnt > ! ) ( cnt , 1 cnt INC ! ) WHILE !
+
+8 cnt DEC !
+
+( 'Is True' ) ( 'Is False' ) 10 cnt > ! IF-ELSE !
+( 'Is True' ) ( 'Is False' ) cnt 10 > ! IF-ELSE !
+( 'Is True' ) cnt 10 > ! IF !
+( 'Is True' ) 10 cnt > ! IF !
+
