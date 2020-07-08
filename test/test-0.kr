@@ -79,9 +79,6 @@ PROFILE :
 PROFILE 'user' !
 
 "Or more generically, we could create a setter for all LISTs to set any pair of key-values"
-LIST :
-    ( . : @ ~ ) SET-KEY @
-~
 'any@user.com' 'user' PROFILE SET-KEY !
 PROFILE 'user' !
 
@@ -124,6 +121,14 @@ cnt cnt < !
 20 cnt <> !
 cnt 20 <> !
 cnt cnt <> !
-'---'
+'----'
 10 20 >= !
 20 10 <= !
+'----'
+
+10 cnt @
+5 cnt INC !
+cnt ,
+10 cnt DEC !
+cnt ,
+'----'

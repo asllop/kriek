@@ -20,45 +20,6 @@ import sys
 # - Think about . and the inner levels
 # - Same about $
 
-"""
-0 A @
-10 B @
-( A B < ! ) ( A ++ ! ) WHILE !
-( 'Is True' ) A B = ! IF !
-( 'Is True' ) ( 'Is False' ) A B = ! IF-ELSE !
-"Loop forever"
-( X Y Z ) LOOP !
-
-"Ideas of loop and decision implementation:"
-LIST :
-    (
-        DO !        "exec list with condition"
-        . \s        "get execution block"
-        IF !        "execute block if condition was YES"
-    ) IF @
-
-    (
-        \s DO !     "exec list with condition"
-        . \s        "put the else block"
-        IF-ELSE !
-    ) IF-ELSE @
-
-    "En procés, no acabat..."
-    (
-        . \s            "guarda ref de paraula actual per després"
-        (
-            \d          "duplica bloc condició"
-            .           "obté paraula actual, cos del while"
-            ( \r $ )    "en cas que la condició sigui falsa, abortarà"
-            IF-ELSE !   "envia IF al cos del while"
-        ) LOOP !
-    ) WHILE !
-~
-
-( A B = ! ) ( 'Is True' ) IF !
-( A B = ! ) ( 'Is True' ) ( 'Is False' ) IF-ELSE !
-"""
-
 ## Integer
 
 ### Message '+' of int
@@ -261,10 +222,19 @@ def list_while(block):
 ## Compilated Lists
 list_compilation_level = 0
 compiled_list = []
-last_receiver_word = None
+receiver_stack = []
 
 def add_to_list(word):
     compiled_list.append(word)
+
+def push_to_receiver_stack(w):
+    receiver_stack.append(w)
+
+def pop_from_receiver_stack():
+    return receiver_stack.pop()
+
+def get_current_receiver():
+    return receiver_stack[-1]
 
 ## Dictionaries
 
@@ -452,19 +422,19 @@ def exec_word(recv, msg, d):
                 vm_loop(w)
             else:
                 vm_loop([w])
+        pop_from_receiver_stack()
     else:
+        pop_from_receiver_stack()
         return False
-
+    
     return True
 
-#TODO: . must return current word env, not last word used as a receiver
 def do_exclam():
     print("CONTROL WORD: !")
     msg = pop_from_stack()
     recv = pop_from_stack()
 
-    global last_receiver_word
-    last_receiver_word = recv
+    push_to_receiver_stack(recv)
 
     r = False
 
@@ -516,7 +486,7 @@ def do_tilde():
 
 def do_dot():
     print("CONTROL WORD: .")
-    push_to_stack(last_receiver_word)
+    push_to_stack(get_current_receiver())
 
 def do_comma():
     print("CONTROL WORD: ,")
@@ -663,4 +633,7 @@ print(stack)
 print()
 print("Global Dictionary = ")
 print(global_dictionary)
+print()
+print("Receiver Stack = ")
+print(receiver_stack)
 print()

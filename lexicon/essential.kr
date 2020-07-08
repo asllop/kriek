@@ -3,10 +3,10 @@ INTEGER :
     "Increment by N the value of a word"
     ( . + ! . @ ) INC @
 
-    "Decrement by N the value of a word. TODO: must reimplement once we change behaviour of . word"
-    ( . \s . \s - ! \s @ ) DEC @
+    "Decrement by N the value of a word"
+    ( . \s - ! . @  ) DEC @
 
-    "Comparators. TODO: must reimplement once we change behaviour of . word"
+    "Comparators"
     ( \d . > ! \s . = ! NOR ! ) < @
     ( . = ! NOT ! ) <> @
     ( . < ! NOT ! ) >= @
@@ -18,4 +18,10 @@ BOOLEAN :
     "Logic operators"
     ( . AND ! NOT ! ) NAND @
     ( . OR ! NOT ! ) NOR @
+~
+
+"Custom words for LIST primitive"
+LIST :
+    "Set a key-valye pair"
+    ( . : @ ~ ) SET-KEY @
 ~
