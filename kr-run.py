@@ -3,15 +3,15 @@ import sys
 # Primitives
 
 #TODO - Implement messages that can't be created in Kriek, only in native code:
-# - LIST messages: LOOP, SET, GET, ADD, DEL, DO
+# - LIST messages: LOOP(?), SET, GET, ADD, DEL, DO
 # - STRING messages: SIZE, SET, GET, ADD, DEL
-# - BOOLEAN: AND, OR, NOT, IF, IF-ELSE
+# - BOOLEAN:
 # - ALL: TYPE (return string with primitive type)
 
 #TODO - Implement messages in Kriek:
 # - STRING: + (concatenate), SUB (substring), FIND, SPLIT.
-# - LIST: LOOP (using an index), SET-KEY, MAP, REDUCE
-# - INT & FLOAT: INC, DEC, <, =, <>
+# - LIST: SET-KEY, MAP, REDUCE
+# - INT & FLOAT: <, =, <>
 
 #TODO: implement control words: ^ (copy), $ (return)
 #TODO: implement alias
@@ -119,6 +119,18 @@ def int_bigger(word):
     except Exception:
         fail("ERROR: int_bigger: error converting to int")
 
+### Message '=' of int
+def int_equal(word):
+    try: 
+        argA = int(word)
+        argB = int(word_or_value(pop_from_stack()))
+        if argB == argA:
+            push_to_stack('YES')
+        else:
+            push_to_stack('NO')
+    except Exception:
+        fail("ERROR: int_equal: error converting to int")
+
 ## Float
 
 ### Message '+' of float
@@ -169,6 +181,18 @@ def float_bigger(word):
     except Exception:
         fail("ERROR: float_bigger: error converting to float")
 
+### Message '=' of float
+def float_equal(word):
+    try: 
+        argA = float(word)
+        argB = float(word_or_value(pop_from_stack()))
+        if argB == argA:
+            push_to_stack('YES')
+        else:
+            push_to_stack('NO')
+    except Exception:
+        fail("ERROR: float_equal: error converting to float")
+
 ## Boolean
 
 ### Message 'IF' of boolean
@@ -176,6 +200,33 @@ def bool_if(word):
     block = pop_from_stack()
     if word == 'YES':
         vm_loop(block)
+
+### Message 'AND' of boolean
+def bool_and(word):
+    b = pop_from_stack()
+    if not is_bool(b):
+        fail("ERROR: argument not a boolean")
+    if word == 'YES' and b == 'YES':
+        push_to_stack('YES')
+    else:
+        push_to_stack('NO')
+
+### Message 'OR' of boolean
+def bool_or(word):
+    b = pop_from_stack()
+    if not is_bool(b):
+        fail("ERROR: argument not a boolean")
+    if word == 'NO' and b == 'NO':
+        push_to_stack('NO')
+    else:
+        push_to_stack('YES')
+
+### Message 'NOT' of boolean
+def bool_not(word):
+    if word == 'YES':
+        push_to_stack('NO')
+    else:
+        push_to_stack('YES')
 
 ### Message 'IF-ELSE' of boolean
 def bool_ifelse(word):
@@ -225,19 +276,24 @@ global_dictionary = {
         '*': int_mul,
         '/': int_div,
         '%': int_mod,
-        '>': int_bigger
+        '>': int_bigger,
+        '=': int_equal
     }],
     "FLOAT": ["0.0", {
         '+': float_plus,
         '-': float_minus,
         '*': float_mul,
         '/': float_div,
-        '>': float_bigger
+        '>': float_bigger,
+        '=': float_equal
     }],
     "STRING": ["''", {}],
     "BOOLEAN": ["NO", {
         "IF": bool_if,
         "IF-ELSE": bool_ifelse,
+        "AND": bool_and,
+        "OR": bool_or,
+        "NOT": bool_not
     }],
     "LIST": [[], {
         "SIZE": list_size,

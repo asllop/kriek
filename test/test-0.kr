@@ -109,3 +109,18 @@ PROFILE 'user' !
 ( 'Is True' ) cnt 10 > ! IF !
 ( 'Is True' ) 10 cnt > ! IF !
 
+10 cnt > !
+10 cnt > ! NOT !
+YES NO OR !
+YES NO AND !
+'----'
+20 cnt = !
+cnt cnt = !
+'----'
+20 cnt < !
+0 cnt < !
+cnt cnt < !
+'----'
+20 cnt <> !
+cnt 20 <> !
+cnt cnt <> !

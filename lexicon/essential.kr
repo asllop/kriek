@@ -1,5 +1,19 @@
-"Increment by N the value of a word"
-INTEGER : ( . + ! . @ ) INC @ ~
+"Custom words for INTEGER primitive"
+INTEGER :
+    "Increment by N the value of a word"
+    ( . + ! . @ ) INC @
 
-"Decrement by N the value of a word"
-INTEGER : ( . \s . \s - ! \s @ ) DEC @ ~
+    "Decrement by N the value of a word"
+    ( . \s . \s - ! \s @ ) DEC @
+
+    "Comparators"
+    ( \d . > ! \s . = ! NOR ! ) < @
+    ( . = ! NOT ! ) <> @
+~
+
+"Custom words for BOOLEAN primitive"
+BOOLEAN :
+    "Logic operators"
+    ( . AND ! NOT ! ) NAND @
+    ( . OR ! NOT ! ) NOR @
+~
