@@ -457,6 +457,7 @@ def exec_word(recv, msg, d):
 
     return True
 
+#TODO: . must return current word env, not last word used as a receiver
 def do_exclam():
     print("CONTROL WORD: !")
     msg = pop_from_stack()

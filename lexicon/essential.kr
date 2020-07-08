@@ -3,12 +3,14 @@ INTEGER :
     "Increment by N the value of a word"
     ( . + ! . @ ) INC @
 
-    "Decrement by N the value of a word"
+    "Decrement by N the value of a word. TODO: must reimplement once we change behaviour of . word"
     ( . \s . \s - ! \s @ ) DEC @
 
-    "Comparators"
+    "Comparators. TODO: must reimplement once we change behaviour of . word"
     ( \d . > ! \s . = ! NOR ! ) < @
     ( . = ! NOT ! ) <> @
+    ( . < ! NOT ! ) >= @
+    ( . > ! NOT ! ) <= @
 ~
 
 "Custom words for BOOLEAN primitive"
