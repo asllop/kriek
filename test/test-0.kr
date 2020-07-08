@@ -84,3 +84,13 @@ LIST :
 ~
 'any@user.com' 'user' PROFILE SET-KEY !
 PROFILE 'user' !
+
+1200 \d
+800 \r
+600 700 \s
+
+1 2 3 4 5 6 7
+3 \c
+
+1 2 3 4 5 6 7
+3 \e

@@ -1,4 +1,45 @@
+import sys
+
 # Primitives
+
+#TODO - Implement messages that can't be created in Kriek, only in native code:
+# - LIST messages: WHILE, SET, GET, ADD, DEL, DO
+# - STRING messages: SIZE, SET, GET, ADD, DEL
+# - BOOLEAN: AND, OR, NOT, IF, IF-ELSE
+# - ALL: TYPE (return string with primitive type)
+
+#TODO - Implement messages in Kriek:
+# - STRING: + (concatenate), SUB (substring), FIND, SPLIT.
+# - LIST: LOOP (using an index), SET-KEY, MAP, REDUCE
+# - INTEGER: ++, --
+
+#TODO: implement control words: ^ (copy), $ (return)
+#TODO: implement stack words
+
+"""
+0 A @
+10 B @
+( A B < ! ) ( A ++ ! ) WHILE !
+( 'Is True' ) A B = ! IF !
+( 'Is True' ) ( 'Is False' ) A B = ! IF-ELSE !
+
+LIST :
+    (
+        DO !    "exec list with condition"
+        . \s    "get execution block"
+        IF !    "execute block if condition was YES"
+    ) IF @
+
+    (
+        \s DO ! "exec list with condition"
+        . \s    "put the else block"
+        IF-ELSE !
+    ) IF-ELSE @
+~
+
+( A B = ! ) ( 'Is True' ) IF !
+( A B = ! ) ( 'Is True' ) ( 'Is False' ) IF-ELSE !
+"""
 
 ## Integer
 
@@ -259,6 +300,16 @@ def run_word(word):
         do_dot()
     elif word == ',':
         do_comma()
+    elif word == '\\d':
+        do_stack_duplicate()
+    elif word == '\\s':
+        do_stack_swap()
+    elif word == '\\r':
+        do_stack_remove()
+    elif word == '\\c':
+        do_stack_copy()
+    elif word == '\\e':
+        do_stack_extract()
     else:
         do_normal(word)
 
@@ -379,6 +430,53 @@ def do_normal(word):
     print("NORMAL WORD:  " + word)
     push_to_stack(word)
 
+def do_stack_duplicate():
+    print("STACK DUPLICATE")
+    x = pop_from_stack()
+    push_to_stack(x)
+    push_to_stack(x)
+
+def do_stack_swap():
+    print("STACK SWAP")
+    x = pop_from_stack()
+    y = pop_from_stack()
+    push_to_stack(x)
+    push_to_stack(y)
+
+def do_stack_remove():
+    print("STACK REMOVE")
+    pop_from_stack()
+
+def do_stack_copy():
+    print("STACK COPY")
+    n = pop_from_stack()
+    if is_int(n):
+        n = int(n)
+        if len(stack) > n:
+            push_to_stack(stack[-1*(n + 1)])
+        else:
+            #TODO: ERROR
+            print("ERROR: index out of stack size")
+    else:
+        #TODO: ERROR
+        print("ERROR: index not an integer")
+
+def do_stack_extract():
+    print("STACK EXTRACT")
+    n = pop_from_stack()
+    if is_int(n):
+        n = int(n)
+        if len(stack) > n:
+            x = stack[-1*(n + 1)]
+            del stack[-1*(n + 1)]
+            push_to_stack(x)
+        else:
+            #TODO: ERROR
+            print("ERROR: index out of stack size")
+    else:
+        #TODO: ERROR
+        print("ERROR: index not an integer")
+
 ## Type detectors
 
 def is_int(word):
@@ -421,12 +519,23 @@ def vm_loop(word_list):
     
     print("END VM LOOP")
 
+def run_krfile(f):
+    with open(f, 'r') as krfile:
+        program = krfile.read()
+    vm_loop(tokenize(program))
+
+# Execute lexicons
+
+run_krfile('lexicon/essential.kr')
+
 # User Program
 
-with open('test-0.kr', 'r') as myfile:
-    program = myfile.read()
+arguments = len(sys.argv) - 1
+if arguments != 1:
+    print("\n\nUSAGE: kr-run FILE\n\n")
+    exit(1)
 
-vm_loop(tokenize(program))
+run_krfile(sys.argv[1])
 
 print("\n\nFinished Executing.\n")
 print("Stack = ")
