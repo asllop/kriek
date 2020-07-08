@@ -89,6 +89,18 @@ def int_mod(word):
     except Exception:
         fail("ERROR: int_mod: error converting to int")
 
+### Message '>' of int
+def int_bigger(word):
+    try: 
+        argA = int(word)
+        argB = int(word_or_value(pop_from_stack()))
+        if argB > argA:
+            push_to_stack('YES')
+        else:
+            push_to_stack('NO')
+    except Exception:
+        fail("ERROR: int_bigger: error converting to int")
+
 ## Float
 
 ### Message '+' of float
@@ -98,7 +110,7 @@ def float_plus(word):
         argB = float(word_or_value(pop_from_stack()))
         push_to_stack(str(argA + argB))
     except Exception:
-        fail("ERROR: float_plus: error  converting to int")
+        fail("ERROR: float_plus: error converting to float")
 
 ### Message '-' of float
 def float_minus(word):
@@ -107,7 +119,7 @@ def float_minus(word):
         argB = float(word_or_value(pop_from_stack()))
         push_to_stack(str(argB - argA))
     except Exception:
-        fail("ERROR: float_minus: error converting to int")
+        fail("ERROR: float_minus: error converting to float")
 
 ### Message '*' of float
 def float_mul(word):
@@ -116,7 +128,7 @@ def float_mul(word):
         argB = float(word_or_value(pop_from_stack()))
         push_to_stack(str(argB * argA))
     except Exception:
-        fail("ERROR: float_mul: error converting to int")
+        fail("ERROR: float_mul: error converting to float")
 
 ### Message '/' of float
 def float_div(word):
@@ -125,13 +137,38 @@ def float_div(word):
         argB = float(word_or_value(pop_from_stack()))
         push_to_stack(str(argB / argA))
     except Exception:
-        fail("ERROR: int_div: error converting to int")
+        fail("ERROR: float_div: error converting to float")
+
+### Message '>' of float
+def float_bigger(word):
+    try: 
+        argA = float(word)
+        argB = float(word_or_value(pop_from_stack()))
+        if argB > argA:
+            push_to_stack('YES')
+        else:
+            push_to_stack('NO')
+    except Exception:
+        fail("ERROR: float_bigger: error converting to float")
 
 ## List
 
 ### Message 'SIZE' of list
 def list_size(word):
     push_to_stack(str(len(word)))
+
+### Message 'WHILE' of list
+def list_while(block):
+    condition = pop_from_stack()
+    while True:
+        vm_loop(condition)
+        b = pop_from_stack()
+        if not is_bool(b):
+            fail("ERROR: WHILE condition not a boolean")
+        if b == 'YES':
+            vm_loop(block)
+        else:
+            return
 
 # VM state
 
@@ -152,18 +189,21 @@ global_dictionary = {
         '-': int_minus,
         '*': int_mul,
         '/': int_div,
-        '%': int_mod
+        '%': int_mod,
+        '>': int_bigger
     }],
     "FLOAT": ["0.0", {
         '+': float_plus,
         '-': float_minus,
         '*': float_mul,
-        '/': float_div
+        '/': float_div,
+        '>': float_bigger
     }],
     "STRING": ["''", {}],
     "BOOLEAN": ["NO", {}],
     "LIST": [[], {
-        "SIZE": list_size
+        "SIZE": list_size,
+        "WHILE": list_while
     }]
 }
 
@@ -172,6 +212,8 @@ dictionary = global_dictionary
 
 ### Functions to operate with dictionaries and words
 def add_to_dictionary(w, v):
+    if is_list(w):
+        w = repr(w) #Lists are not hashable in Python, we have to convert to string
     dictionary[w] = [v, {}]
 
 def get_word_value(w):
@@ -182,6 +224,8 @@ def get_word_value(w):
         return None
 
 def get_word_dictionary(w):
+    if is_list(w):
+        w = repr(w) #Lists are not hashable in Python, we have to convert to string
     if w in dictionary:
         t = dictionary[w]
         return t[1]

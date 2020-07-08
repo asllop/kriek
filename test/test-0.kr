@@ -48,8 +48,8 @@ TUPLA : PARELLA numA ! PARELLA numB ! ~
 7 3 % !
 
 "The dot references to the integer value, not to the INTEGER word"
-INTEGER : ( 1 . + ! ) ++ @ ~
-100 ++ !
+INTEGER : ( 1 . + ! ) +1 @ ~
+100 +1 !
 
 "Use an auxiliary word to reuse the code for both INTEGER and FLOAT. This could be done with alias also."
 ( 2 . * ! ) DOUBLE @
@@ -98,3 +98,8 @@ PROFILE 'user' !
 "We need a way to convert between int-float"
 100 1.0 * ! "it works"
 "100.0 1 * !" "it doesn't"
+
+INTEGER : ( 1 . + ! . @ ) INC @ ~
+
+0 cnt @
+( 10 cnt > ! ) ( cnt , cnt INC ! ) WHILE !
