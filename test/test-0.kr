@@ -94,3 +94,7 @@ PROFILE 'user' !
 
 1 2 3 4 5 6 7
 3 \e
+
+"We need a way to convert between int-float"
+100 1.0 * ! "it works"
+"100.0 1 * !" "it doesn't"

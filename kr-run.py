@@ -50,8 +50,7 @@ def int_plus(word):
         argB = int(word_or_value(pop_from_stack()))
         push_to_stack(str(argA + argB))
     except Exception:
-        #TODO: ERROR
-        print("ERROR: int_plus: error  converting to int")
+        fail("ERROR: int_plus: error  converting to int")
 
 ### Message '-' of int
 def int_minus(word):
@@ -60,8 +59,7 @@ def int_minus(word):
         argB = int(word_or_value(pop_from_stack()))
         push_to_stack(str(argB - argA))
     except Exception:
-        #TODO: ERROR
-        print("ERROR: int_minus: error converting to int")
+        fail("ERROR: int_minus: error converting to int")
 
 ### Message '*' of int
 def int_mul(word):
@@ -70,8 +68,7 @@ def int_mul(word):
         argB = int(word_or_value(pop_from_stack()))
         push_to_stack(str(argB * argA))
     except Exception:
-        #TODO: ERROR
-        print("ERROR: int_mul: error converting to int")
+        fail("ERROR: int_mul: error converting to int")
 
 ### Message '/' of int
 def int_div(word):
@@ -80,8 +77,7 @@ def int_div(word):
         argB = int(word_or_value(pop_from_stack()))
         push_to_stack(str(argB // argA))
     except Exception:
-        #TODO: ERROR
-        print("ERROR: int_div: error converting to int")
+        fail("ERROR: int_div: error converting to int")
 
 
 ### Message '%' of int
@@ -91,8 +87,7 @@ def int_mod(word):
         argB = int(word_or_value(pop_from_stack()))
         push_to_stack(str(argB % argA))
     except Exception:
-        #TODO: ERROR
-        print("ERROR: int_mod: error converting to int")
+        fail("ERROR: int_mod: error converting to int")
 
 ## Float
 
@@ -103,8 +98,7 @@ def float_plus(word):
         argB = float(word_or_value(pop_from_stack()))
         push_to_stack(str(argA + argB))
     except Exception:
-        #TODO: ERROR
-        print("ERROR: float_plus: error  converting to int")
+        fail("ERROR: float_plus: error  converting to int")
 
 ### Message '-' of float
 def float_minus(word):
@@ -113,8 +107,7 @@ def float_minus(word):
         argB = float(word_or_value(pop_from_stack()))
         push_to_stack(str(argB - argA))
     except Exception:
-        #TODO: ERROR
-        print("ERROR: float_minus: error converting to int")
+        fail("ERROR: float_minus: error converting to int")
 
 ### Message '*' of float
 def float_mul(word):
@@ -123,8 +116,7 @@ def float_mul(word):
         argB = float(word_or_value(pop_from_stack()))
         push_to_stack(str(argB * argA))
     except Exception:
-        #TODO: ERROR
-        print("ERROR: float_mul: error converting to int")
+        fail("ERROR: float_mul: error converting to int")
 
 ### Message '/' of float
 def float_div(word):
@@ -133,8 +125,7 @@ def float_div(word):
         argB = float(word_or_value(pop_from_stack()))
         push_to_stack(str(argB / argA))
     except Exception:
-        #TODO: ERROR
-        print("ERROR: int_div: error converting to int")
+        fail("ERROR: int_div: error converting to int")
 
 ## List
 
@@ -210,8 +201,7 @@ def move_to_word_dictionary(w):
     if d != None:
         dictionary = d
     else:
-        #TODO: ERROR
-        print("ERROR: word " + w + " not found in current dictionary")
+        fail("ERROR: word " + w + " not found in current dictionary")
 
 def word_or_value(word):
     if is_int(word) or is_float(word) or is_bool(word) or is_string(word) or is_list(word):
@@ -229,9 +219,7 @@ def pop_from_stack():
     if len(stack) > 0:
         return stack.pop()
     else:
-        #TODO: ERROR
-        print("ERROR: stack underflow")
-        return None
+        fail("ERROR: stack underflow")
 
 # VM Compiler and Executor
 def tokenize(string):
@@ -361,15 +349,12 @@ def do_exclam():
         elif is_list(content):
             type_dict = global_dictionary['LIST'][1]
         else:
-            #TODO: error
-            print("ERROR: Unknown type")
-            return
+            fail("ERROR: Unknown type")
 
         r = exec_word(content, msg, type_dict)
 
     if r == False:
-        #TODO: error
-        print("ERROR: no message " + str(msg) + " in word " + str(recv))
+        fail("ERROR: no message " + str(msg) + " in word " + str(recv))
 
 def do_at():
     print("CONTROL WORD: @")
@@ -378,9 +363,7 @@ def do_at():
     if value != None:
         add_to_dictionary(word, value)
     else:
-        #TODO: ERROR
-        print("ERROR: value word doesn't exist")
-        return
+        fail("ERROR: value word doesn't exist")
 
 def do_colon():
     print("CONTROL WORD: :")
@@ -455,11 +438,9 @@ def do_stack_copy():
         if len(stack) > n:
             push_to_stack(stack[-1*(n + 1)])
         else:
-            #TODO: ERROR
-            print("ERROR: index out of stack size")
+            fail("ERROR: index out of stack size")
     else:
-        #TODO: ERROR
-        print("ERROR: index not an integer")
+        fail("ERROR: index not an integer")
 
 def do_stack_extract():
     print("STACK EXTRACT")
@@ -471,11 +452,9 @@ def do_stack_extract():
             del stack[-1*(n + 1)]
             push_to_stack(x)
         else:
-            #TODO: ERROR
-            print("ERROR: index out of stack size")
+            fail("ERROR: index out of stack size")
     else:
-        #TODO: ERROR
-        print("ERROR: index not an integer")
+        fail("ERROR: index not an integer")
 
 ## Type detectors
 
@@ -524,16 +503,18 @@ def run_krfile(f):
         program = krfile.read()
     vm_loop(tokenize(program))
 
+def fail(msg):
+    print(msg)
+    exit(1)
+
 # Execute lexicons
 
 run_krfile('lexicon/essential.kr')
 
 # User Program
 
-arguments = len(sys.argv) - 1
-if arguments != 1:
-    print("\n\nUSAGE: kr-run FILE\n\n")
-    exit(1)
+if len(sys.argv) != 2:
+    fail("\n\nUSAGE:\n$ kr-run FILE\n\n")
 
 run_krfile(sys.argv[1])
 
@@ -544,5 +525,3 @@ print()
 print("Global Dictionary = ")
 print(global_dictionary)
 print()
-print("TUPLA Dictionary = ")
-print(get_word_dictionary("TUPLA"))
