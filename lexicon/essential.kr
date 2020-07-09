@@ -1,23 +1,43 @@
+"Aliases"
+[ . + ! . @ ] _INC_
+[ . \s - ! . @ ] _DEC_
+[ \d . > ! \s . = ! NOR ! ] _<_
+[ . = ! NOT ! ] _<>_
+[ . < ! NOT ! ] _>=_
+[ . > ! NOT ! ] _<=_
+
 "Custom words for INTEGER primitive"
 INTEGER :
     'INTEGER' TYPE @
 
     "Increment by N the value of a word"
-    ( . + ! . @ ) INC @
+    ( _INC_ ) INC @
 
     "Decrement by N the value of a word"
-    ( . \s - ! . @  ) DEC @
+    ( _DEC_ ) DEC @
 
     "Comparators"
-    ( \d . > ! \s . = ! NOR ! ) < @
-    ( . = ! NOT ! ) <> @
-    ( . < ! NOT ! ) >= @
-    ( . > ! NOT ! ) <= @
+    ( _<_ ) < @
+    ( _<>_ ) <> @
+    ( _>=_ ) >= @
+    ( _<=_ ) <= @
 ~
 
 "Custom words for FLOAT primitive"
 FLOAT :
     'FLOAT' TYPE @
+
+    "Increment by N the value of a word"
+    ( _INC_ ) INC @
+
+    "Decrement by N the value of a word"
+    ( _DEC_ ) DEC @
+
+    "Comparators"
+    ( _<_ ) < @
+    ( _<>_ ) <> @
+    ( _>=_ ) >= @
+    ( _<=_ ) <= @
 ~
 
 "Custom words for BOOLEAN primitive"

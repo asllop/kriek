@@ -1,11 +1,13 @@
 "This is a comment"
 
-10 10 - !
+10 var @
+1 var INC !
 
 "Create an alias"
 [ 10 + ! ] ADD_10
 
 90 ADD_10
+ ( ADD_10 )
 
 10 20 + !
 
@@ -153,3 +155,15 @@ PROFILE 'age' ! TYPE !
 PROFILE TYPE !
 PROFILE : 'PROFILE' TYPE @ ~
 PROFILE TYPE !
+
+99.5 num @
+1.25 num INC !
+num ,
+1.25 num DEC !
+num ,
+'----'
+1.25 num < !
+1.25 num <= !
+99.5 num = !
+99.5 num >= !
+1.25 num >= !
