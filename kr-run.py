@@ -6,13 +6,13 @@ import sys
 # - LIST messages: LOOP(?), SET, GET, ADD, DEL, DO(?)
 # - STRING messages: SIZE, SET, GET, ADD, DEL
 # - BOOLEAN:
+# - INT & FLOAT: STR (convert to string)
 
 #TODO - Implement messages in Kriek:
 # - STRING: + (concatenate), SUB (substring), FIND, SPLIT.
 # - LIST: MAP, REDUCE
 
 #TODO: implement control words: ^ (copy), $ (return)
-#TODO: implement alias
 
 #TODO:
 # - Think about $ and the inner levels
@@ -327,6 +327,44 @@ def pop_from_stack():
         fail("ERROR: stack underflow")
 
 # VM Compiler and Executor
+aliases = {}
+
+def compile(string):
+    tokens = tokenize(string)
+    # find alias
+    clean_tokens = []
+    i = 0
+    while i < len(tokens):
+        w = tokens[i]
+        definition = []
+        alias_word = None
+        if w == '[':
+            i = i + 1
+            while tokens[i] != ']':
+                definition.append(tokens[i])
+                i = i + 1
+            i = i + 1
+            alias_word = tokens[i]
+            aliases[alias_word] = definition
+        else:
+            clean_tokens.append(w)
+        
+        i = i + 1
+    # free mem
+    del tokens
+    # substitute aliases by definitions
+    final_tokens = []
+    i = 0
+    while i < len(clean_tokens):
+        w = clean_tokens[i]
+        if w in aliases:
+            final_tokens.extend(aliases[w])
+        else:
+            final_tokens.append(w)
+        i = i + 1
+    
+    return final_tokens
+
 def tokenize(string):
     tokens = []
     word = ''
@@ -607,7 +645,7 @@ def vm_loop(word_list):
 def run_krfile(f):
     with open(f, 'r') as krfile:
         program = krfile.read()
-    vm_loop(tokenize(program))
+    vm_loop(compile(program))
 
 def fail(msg):
     print(msg)
@@ -633,4 +671,7 @@ print(global_dictionary)
 print()
 print("Receiver Stack = ")
 print(receiver_stack)
+print()
+print("Aliases = ")
+print(aliases)
 print()
