@@ -132,3 +132,17 @@ cnt ,
 10 cnt DEC !
 cnt ,
 '----'
+'hola' TYPE !
+( ) TYPE !
+123 TYPE !
+1.23 TYPE !
+YES TYPE !
+
+1 2 = ! TYPE !
+cnt TYPE !
+STRING TYPE !
+PROFILE : 35 'age' @ ~
+PROFILE 'age' ! TYPE !
+PROFILE TYPE !
+PROFILE : 'PROFILE' TYPE @ ~
+PROFILE TYPE !

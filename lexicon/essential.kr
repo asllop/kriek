@@ -1,5 +1,7 @@
 "Custom words for INTEGER primitive"
 INTEGER :
+    'INTEGER' TYPE @
+
     "Increment by N the value of a word"
     ( . + ! . @ ) INC @
 
@@ -13,15 +15,29 @@ INTEGER :
     ( . > ! NOT ! ) <= @
 ~
 
+"Custom words for FLOAT primitive"
+FLOAT :
+    'FLOAT' TYPE @
+~
+
 "Custom words for BOOLEAN primitive"
 BOOLEAN :
+    'BOOLEAN' TYPE @
+
     "Logic operators"
     ( . AND ! NOT ! ) NAND @
     ( . OR ! NOT ! ) NOR @
 ~
 
+"Custom words for STRING primitive"
+STRING :
+    'STRING' TYPE @
+~
+
 "Custom words for LIST primitive"
 LIST :
+    'LIST' TYPE @
+
     "Set a key-valye pair"
     ( . : @ ~ ) SET-KEY @
 ~

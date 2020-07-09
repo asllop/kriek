@@ -3,22 +3,19 @@ import sys
 # Primitives
 
 #TODO - Implement messages that can't be created in Kriek, only in native code:
-# - LIST messages: LOOP(?), SET, GET, ADD, DEL, DO
+# - LIST messages: LOOP(?), SET, GET, ADD, DEL, DO(?)
 # - STRING messages: SIZE, SET, GET, ADD, DEL
 # - BOOLEAN:
-# - ALL: TYPE (return string with primitive type)
 
 #TODO - Implement messages in Kriek:
 # - STRING: + (concatenate), SUB (substring), FIND, SPLIT.
-# - LIST: SET-KEY, MAP, REDUCE
-# - INT & FLOAT: <, =, <>
+# - LIST: MAP, REDUCE
 
 #TODO: implement control words: ^ (copy), $ (return)
 #TODO: implement alias
 
 #TODO:
-# - Think about . and the inner levels
-# - Same about $
+# - Think about $ and the inner levels
 
 ## Integer
 
