@@ -268,8 +268,26 @@ global_dictionary = {
     }]
 }
 
+#TODO: if a word doesn't exist in local dictionary, go down in the dicitonary stack until reach the base or find it.
+
+### Stack of dictionaries
+dictionary_stack = [global_dictionary]
+
 ### Current Dictionary
-dictionary = global_dictionary
+dictionary = dictionary_stack[-1]
+
+def push_to_dictionary_stack(d):
+    global dictionary
+    dictionary_stack.append(d)
+    dictionary = dictionary_stack[-1]
+
+def pop_from_dictionary_stack():
+    global dictionary
+    if len(dictionary_stack) > 0:
+        dictionary_stack.pop()
+        dictionary = dictionary_stack[-1]
+    else:
+        fail("ERROR: dictionary stack underflow")
 
 ### Functions to operate with dictionaries and words
 def add_to_dictionary(w, v):
@@ -301,12 +319,14 @@ def exist_word_in_word_dictionary(w, wdict):
         return w in d
 
 def move_to_word_dictionary(w):
-    global dictionary
     d = get_word_dictionary(w)
     if d != None:
-        dictionary = d
+        push_to_dictionary_stack(d)
     else:
         fail("ERROR: word " + w + " not found in current dictionary")
+
+def go_back_to_previous_dictionary():
+    pop_from_dictionary_stack()
 
 def word_or_value(word):
     if is_int(word) or is_float(word) or is_bool(word) or is_string(word) or is_list(word):
@@ -516,8 +536,7 @@ def do_colon():
 
 def do_tilde():
     print("CONTROL WORD: ~")
-    global dictionary
-    dictionary = global_dictionary
+    go_back_to_previous_dictionary()
 
 def do_dot():
     print("CONTROL WORD: .")
@@ -674,4 +693,7 @@ print(receiver_stack)
 print()
 print("Aliases = ")
 print(aliases)
+print()
+print("Dictionary Stack (" + str(len(dictionary_stack)) + ") = ")
+print(dictionary_stack)
 print()

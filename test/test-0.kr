@@ -47,10 +47,11 @@ TUPLA :
     PARELLA :
         66 numA @
         11 numB @
+    ~
 ~
-TUPLA : PARELLA : numA numB - ! ~
+TUPLA : PARELLA : numA numB - ! ~ ~
 "The comma word is not necessary, but useful. Below expressions are equivalent:"
-TUPLA : PARELLA : numA , numB , ~
+TUPLA : PARELLA : numA , numB , ~ ~
 TUPLA : PARELLA numA ! PARELLA numB ! ~
 
 7 3 / !
@@ -167,3 +168,29 @@ num ,
 99.5 num = !
 99.5 num >= !
 1.25 num >= !
+
+( ) USER @
+USER :
+    'asantaren' USER-NAME @
+    'xxxxxxxxx' PASSWORD @
+
+    ( ) PROFILE @
+    PROFILE :
+        'andreu' NAME @
+        'santaren llop' SURNAME @
+        '25-11-1983' BIRTH-DATE @
+
+        ( ) PICTURES @
+        PICTURES :
+            'http://xxxxx/img.png' IMG-URL @
+            'http://xxxxx/cover.png' COVER-IMG-URL @
+        ~
+    ~
+
+    ( ) ACTIVITY @
+    ACTIVITY :
+        123 NUM-POSTS @
+    ~
+~
+
+USER : PROFILE : PICTURES IMG-URL ! ~ ~
