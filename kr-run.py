@@ -268,8 +268,6 @@ global_dictionary = {
     }]
 }
 
-#TODO: if a word doesn't exist in local dictionary, go down in the dicitonary stack until reach the base or find it.
-
 ### Stack of dictionaries
 dictionary_stack = [global_dictionary]
 
@@ -295,24 +293,30 @@ def add_to_dictionary(w, v):
         w = repr(w) #Lists are not hashable in Python, we have to convert to string
     dictionary[w] = [v, {}]
 
-def get_word_value(w):
-    if w in dictionary:
-        t = dictionary[w]
+def get_word_value_from_dictionary(w, d):
+    if w in d:
+        t = d[w]
         return t[0]
     else:
         return None
 
-def get_word_dictionary(w):
+def get_word_value(w):
+    return get_word_value_from_dictionary(w, dictionary)
+
+def get_word_dictionary_using_dictionary(w, d):
     if is_list(w):
         w = repr(w) #Lists are not hashable in Python, we have to convert to string
-    if w in dictionary:
-        t = dictionary[w]
+    if w in d:
+        t = d[w]
         return t[1]
     else:
         return None
 
-def exist_word_in_word_dictionary(w, wdict):
-    d = get_word_dictionary(wdict)
+def get_word_dictionary(w):
+    return get_word_dictionary_using_dictionary(w, dictionary)
+
+def exist_word_in_word_dictionary(w, recv_w):
+    d = get_word_dictionary(recv_w)
     if d == None:
         return False
     else:
@@ -327,6 +331,14 @@ def move_to_word_dictionary(w):
 
 def go_back_to_previous_dictionary():
     pop_from_dictionary_stack()
+
+def find_word_in_dictionary_stack(w):
+    for d in reversed(dictionary_stack):
+        # find w inside d
+        new_d = get_word_dictionary_using_dictionary(w, d)
+        if new_d != None:
+            return d
+    return None
 
 def word_or_value(word):
     if is_int(word) or is_float(word) or is_bool(word) or is_string(word) or is_list(word):
@@ -477,12 +489,32 @@ def exec_word(recv, msg, d):
                 vm_loop(w)
             else:
                 vm_loop([w])
-        pop_from_receiver_stack()
     else:
-        pop_from_receiver_stack()
         return False
     
     return True
+
+def exec_in_primitive(content, msg):
+    type_dict = None
+    if content != None:
+        # primitives are defined in the global dictionary
+        if is_int(content):
+            type_dict = global_dictionary['INTEGER'][1]
+        elif is_float(content):
+            type_dict = global_dictionary['FLOAT'][1]
+        elif is_string(content):
+            type_dict = global_dictionary['STRING'][1]
+        elif is_bool(content):
+            type_dict = global_dictionary['BOOLEAN'][1]
+        elif is_list(content):
+            type_dict = global_dictionary['LIST'][1]
+        else:
+            fail("ERROR: Unknown type")
+        
+        r = exec_word(content, msg, type_dict)
+        return r
+    else:
+        return False
 
 def do_exclam():
     print("CONTROL WORD: !")
@@ -500,25 +532,23 @@ def do_exclam():
     else:
         # msg doesn't exist inside recv, try with its content primitive
         content = word_or_value(recv)
+        r = exec_in_primitive(content, msg)
 
-        # primitives are defined in the global dictionary
-        if is_int(content):
-            type_dict = global_dictionary['INTEGER'][1]
-        elif is_float(content):
-            type_dict = global_dictionary['FLOAT'][1]
-        elif is_string(content):
-            type_dict = global_dictionary['STRING'][1]
-        elif is_bool(content):
-            type_dict = global_dictionary['BOOLEAN'][1]
-        elif is_list(content):
-            type_dict = global_dictionary['LIST'][1]
-        else:
-            fail("ERROR: Unknown type")
-
-        r = exec_word(content, msg, type_dict)
+        if r != True:
+            # word still doesn't exist, go down in the dictionary stack until reach the base or find it
+            d = find_word_in_dictionary_stack(recv)
+            if d != None:
+                r = exec_word(recv, msg, d)
+                if r == False:
+                    content = get_word_value_from_dictionary(recv, d)
+                    r = exec_in_primitive(content, msg)
+            else:
+                fail("ERROR: Word " + recv + " doesn't exist in dictionary stack")
 
     if r == False:
         fail("ERROR: no message " + str(msg) + " in word " + str(recv))
+
+    pop_from_receiver_stack()
 
 def do_at():
     print("CONTROL WORD: @")
