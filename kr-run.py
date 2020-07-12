@@ -525,6 +525,13 @@ def do_exclam():
 
     r = False
 
+    #TODO: rework this structure:
+    # Try to find word in all the dictionary stack starting by top
+    # If not found, error
+    # If found, try to exec msg
+    # If msg fails, try with primitive
+    # If it fails, error
+
     if exist_word_in_word_dictionary(msg, recv):
         # msg exist inside recv, execute it
         d = get_word_dictionary(recv)
@@ -538,7 +545,8 @@ def do_exclam():
             # word still doesn't exist, go down in the dictionary stack until reach the base or find it
             d = find_word_in_dictionary_stack(recv)
             if d != None:
-                r = exec_word(recv, msg, d)
+                w_dict = get_word_dictionary_using_dictionary(recv, d)
+                r = exec_word(recv, msg, w_dict)
                 if r == False:
                     content = get_word_value_from_dictionary(recv, d)
                     r = exec_in_primitive(content, msg)
@@ -559,6 +567,7 @@ def do_at():
     else:
         fail("ERROR: value word doesn't exist")
 
+#TODO: find in dictionary stack?
 def do_colon():
     print("CONTROL WORD: :")
     word = pop_from_stack()
