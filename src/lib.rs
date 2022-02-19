@@ -1,4 +1,9 @@
+#![no_std]
+
+extern crate alloc;
+
 use hashbrown::HashMap;
+use alloc::vec::Vec;
 
 pub const NAME_SIZE: usize = 32;
 pub type WordName = [u8; NAME_SIZE];
