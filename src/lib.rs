@@ -32,13 +32,12 @@ impl<T: Iterator<Item=u8> + Sized> TIB<T> {
                 }
             }
             else {
-                word_found = true;
-                word_name[i] = b;
-                i += 1;
-            }
-
-            if i >= NAME_SIZE {
-                break;
+                // If word is too long, truncate
+                if i < NAME_SIZE {
+                    word_found = true;
+                    word_name[i] = b;
+                    i += 1;
+                }
             }
         }
         (word_name, i as u8)
