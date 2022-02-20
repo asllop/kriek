@@ -1,9 +1,7 @@
-use kriek::{
-    TIB, Cell, Stack, Word, Interpreter
-};
+use kriek::Interpreter;
 
 fn main() {
-    let program = "10 20 +".bytes();
+    let program = "10 20 + , 5.5 1.1 +".bytes();
     let mut interpreter = Interpreter::new(program);
     while interpreter.run_next() {
         println!("Stack = {:#?}", interpreter.stack());

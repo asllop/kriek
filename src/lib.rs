@@ -25,16 +25,12 @@ pub enum KrkErr {
 }
 
 /// Terminal Input Buffer
-pub struct TIB<T: Iterator<Item=u8> + Sized> {
-    reader: T
-}
+pub struct TIB<T: Iterator<Item=u8> + Sized>(T);
 
 impl<T: Iterator<Item=u8> + Sized> TIB<T> {
     /// Create a new TIB using a u8 iterator
     pub fn new(reader: T) -> Self {
-        Self {
-            reader
-        }
+        Self(reader)
     }
 
     /// Return next word and word size in the TIB
@@ -42,7 +38,7 @@ impl<T: Iterator<Item=u8> + Sized> TIB<T> {
         let mut word_name = WordName::default();
         let mut i = 0;
         let mut word_found = false;
-        while let Some(b) = self.reader.next() {
+        while let Some(b) = self.0.next() {
             // Found a word separator (comma, space or any control character)
             if b == 44 || b <= 32 {
                 if word_found {
@@ -273,6 +269,15 @@ impl<T: Iterator<Item=u8> + Sized> Words<T> {
     pub fn word_at(&mut self, index: usize) -> Option<&mut Word<T>> {
         self.words.get_mut(index)
     }
+
+    pub fn lexicon_at(&mut self, index: usize) -> &mut LexiconWord {
+        if let Some(word) = self.word_at(index) {
+            if let WordFlavor::Lexicon(lex) = &mut word.flavor {
+                return lex;
+            }
+        }
+        panic!("Word at index {} is not a lexicon", index);
+    }
 }
 
 pub struct Interpreter<T: Iterator<Item=u8> + Sized> {
@@ -338,24 +343,19 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
                     self.stack.push(num_cell);
                 }
                 else {
-                    if let Some(word) = self.words.word_at(self.lex_in_use) {
-                        if let WordFlavor::Lexicon(lex) = &mut word.flavor {
-                            if let Some(word_index) = lex.find_word(&word_name) {
-                                if let Some(word) = self.words.word_at(word_index) {
-                                    match &word.flavor {
-                                        WordFlavor::Defined(_) => todo!(),
-                                        WordFlavor::Primitive(primitive) => {
-                                            (primitive.function)(self);
-                                        },
-                                        WordFlavor::Lexicon(_) => todo!(),
-                                        WordFlavor::Link(_) => todo!(),
-                                    }
-                                }
-                            }
-                            else {
-                                //TODO: if not Root, try it. If not, error, word not found
+                    let lex = self.words.lexicon_at(self.lex_in_use);
+                    if let Some(word_index) = lex.find_word(&word_name) {
+                        if let Some(word) = self.words.word_at(word_index) {
+                            match &word.flavor {
+                                WordFlavor::Defined(_) => todo!(),
+                                WordFlavor::Primitive(primitive) => (primitive.function)(self),
+                                WordFlavor::Lexicon(_) => self.lex_in_use = word_index,
+                                WordFlavor::Link(_) => todo!(),
                             }
                         }
+                    }
+                    else {
+                        //TODO: if not Root, try it. If not, error, word not found
                     }
                 }
             }
@@ -370,8 +370,6 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
     }
 }
 
-//NOTE: having this "context" creates a cascade effect that forces us to define the generic T in almost everywhere
-
 fn plus<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) {
     match context.stack().pop() {
         Cell::Integer(a_int) => {
@@ -380,7 +378,7 @@ fn plus<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) {
                 context.stack().push(Cell::Integer(a_int + b_int));
             }
             else {
-                //TODO: error
+                //TODO: error, mismatch type
             }
         },
         Cell::Float(a_flt) => {
@@ -389,11 +387,11 @@ fn plus<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) {
                 context.stack().push(Cell::Float(a_flt + b_flt));
             }
             else {
-                //TODO: error
+                //TODO: error, mismatch type
             }
         },
         _ => {
-            // TODO: error
+            // TODO: error, not numeric argument
         },
     }
 }
