@@ -20,8 +20,10 @@ pub fn word_from_str(name: &str) -> (WordName, u8) {
     (word_name, name_len)
 }
 
-//TODO: implement error handling
 pub enum KrkErr {
+    StackUnderun,
+    WrongType,
+    Other(&'static str, u16),
 }
 
 /// Terminal Input Buffer
@@ -115,14 +117,13 @@ impl Stack {
     }
 
     /// Ends current stack
-    pub fn end_stack(&mut self) -> usize {
+    pub fn end_stack(&mut self) -> Option<usize> {
         if let Some(base) = self.nested.pop() {
             self.base = base;
-            base
+            Some(base)
         }
         else {
-            //TODO: implement stack underun error 
-            panic!("Nested Stack underun")
+            None
         }
     }
 
@@ -137,13 +138,12 @@ impl Stack {
     }
 
     /// Pop cell from current stack
-    pub fn pop(&mut self) -> Cell {
+    pub fn pop(&mut self) -> Option<Cell> {
         if self.stack.len() > self.base {
-            self.stack.pop().unwrap()
+            self.stack.pop()
         }
         else {
-            //TODO: implement stack underun error 
-            panic!("Stack underun")
+            None
         }
     }
 
@@ -171,7 +171,7 @@ impl<T: Iterator<Item=u8> + Sized> Word<T> {
         }
     }
 
-    pub fn new_primitive(word_name: WordName, name_len: u8, immediate: bool, function: fn(&mut Interpreter<T>)) -> Self {
+    pub fn new_primitive(word_name: WordName, name_len: u8, immediate: bool, function: fn(&mut Interpreter<T>) -> Result<(), KrkErr>) -> Self {
         Self::from_parts(word_name, name_len, immediate, WordFlavor::Primitive(PrimitiveWord::new(function)))
     }
 
@@ -201,11 +201,11 @@ pub struct DefinedWord {
 
 /// Primitive word model
 pub struct PrimitiveWord<T: Iterator<Item=u8> + Sized> {
-    function: fn(&mut Interpreter<T>),
+    function: fn(&mut Interpreter<T>) -> Result<(), KrkErr>,
 }
 
 impl<T: Iterator<Item=u8> + Sized> PrimitiveWord<T> {
-    pub fn new(function: fn(&mut Interpreter<T>)) -> Self {
+    pub fn new(function: fn(&mut Interpreter<T>) -> Result<(), KrkErr>) -> Self {
         Self {
             function
         }
@@ -346,10 +346,13 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
                     let lex = self.words.lexicon_at(self.lex_in_use);
                     if let Some(word_index) = lex.find_word(&word_name) {
                         if let Some(word) = self.words.word_at(word_index) {
+
+                            //TODO: primitive functions must return a Result<(), KrkErr>, they are responsible of handling stack errors, etc.
+
                             match &word.flavor {
                                 WordFlavor::Defined(_) => todo!(),
-                                WordFlavor::Primitive(primitive) => (primitive.function)(self),
-                                WordFlavor::Lexicon(_) => self.lex_in_use = word_index,
+                                WordFlavor::Primitive(primitive) => { (primitive.function)(self); },
+                                WordFlavor::Lexicon(_) => { self.lex_in_use = word_index },
                                 WordFlavor::Link(_) => todo!(),
                             }
                         }
@@ -370,28 +373,20 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
     }
 }
 
-fn plus<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) {
-    match context.stack().pop() {
-        Cell::Integer(a_int) => {
-            // Integer sum
-            if let Cell::Integer(b_int) = context.stack().pop() {
-                context.stack().push(Cell::Integer(a_int + b_int));
-            }
-            else {
-                //TODO: error, mismatch type
-            }
-        },
-        Cell::Float(a_flt) => {
-            // Float sum
-            if let Cell::Float(b_flt) = context.stack().pop() {
-                context.stack().push(Cell::Float(a_flt + b_flt));
-            }
-            else {
-                //TODO: error, mismatch type
-            }
-        },
-        _ => {
-            // TODO: error, not numeric argument
-        },
+fn plus<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    if let (Some(a_cell), Some(b_cell)) = (context.stack().pop(), context.stack().pop()) {
+        if let (Cell::Integer(a_int), Cell::Integer(b_int)) = (&a_cell, &b_cell) {
+            context.stack().push(Cell::Integer(a_int + b_int));
+        }
+        else if let (Cell::Float(a_flt), Cell::Float(b_flt)) = (&a_cell, &b_cell) {
+            context.stack().push(Cell::Float(a_flt + b_flt));
+        }
+        else {
+            return Err(KrkErr::WrongType);
+        }
     }
+    else {
+        return Err(KrkErr::StackUnderun);
+    }
+    Ok(())
 }
