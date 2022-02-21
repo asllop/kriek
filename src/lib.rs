@@ -8,7 +8,7 @@ use alloc::vec::Vec;
 pub const NAME_SIZE: usize = 32;
 pub type WordName = [u8; NAME_SIZE];
 
-pub fn word_from_str(name: &str) -> (WordName, u8) {
+pub fn word_name_from_str(name: &str) -> (WordName, u8) {
     let mut word_name = WordName::default();
     for (i, b) in name.as_bytes().into_iter().enumerate() {
         if i >= NAME_SIZE {
@@ -20,6 +20,7 @@ pub fn word_from_str(name: &str) -> (WordName, u8) {
     (word_name, name_len)
 }
 
+/// Error type
 pub enum KrkErr {
     StackUnderun,
     WrongType,
@@ -153,6 +154,27 @@ impl Stack {
     }
 }
 
+/// Auxiliary stack
+pub struct Aux(Vec<Cell>);
+
+impl Aux {
+    /// Create new stack
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    /// Push cell to current stack
+    pub fn push(&mut self, cell: Cell) {
+        self.0.push(cell);
+    }
+
+    /// Pop cell from current stack
+    pub fn pop(&mut self) -> Option<Cell> {
+        self.0.pop()
+    }
+
+}
+
 /// Word model
 pub struct Word<T: Iterator<Item=u8> + Sized> {
     name_len: u8,
@@ -284,7 +306,7 @@ pub struct Interpreter<T: Iterator<Item=u8> + Sized> {
     tib: TIB<T>,
     words: Words<T>,
     stack: Stack,
-    //TODO: aux stack
+    aux: Aux,
     //TODO: return stack
     lex_in_use: usize,
     exec_mode: bool,
@@ -296,17 +318,18 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
             tib: TIB::new(reader),
             words: Words::new(),
             stack: Stack::new(),
+            aux: Aux::new(),
             lex_in_use: 0,
             exec_mode: true,
         };
 
         // Create Root lexicon
-        let (word_name, name_len) = word_from_str("Root");
+        let (word_name, name_len) = word_name_from_str("Root");
         let root_lex_index = _self.words().add_word(Word::new_lexicon(word_name, name_len));
         _self.lex_in_use = root_lex_index;
 
         // Create "+" word
-        let (word_name, name_len) = word_from_str("+");
+        let (word_name, name_len) = word_name_from_str("+");
         let plus_word_index = _self.words().add_word(Word::new_primitive(word_name, name_len, false, plus));
 
         if let Some(word) = _self.words().word_at(root_lex_index) {
@@ -325,6 +348,10 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
 
     pub fn stack(&mut self) -> &mut Stack {
         &mut self.stack
+    }
+
+    pub fn aux(&mut self) -> &mut Aux {
+        &mut self.aux
     }
 
     pub fn tib(&mut self) -> &mut TIB<T> {
@@ -351,8 +378,14 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
 
                             match &word.flavor {
                                 WordFlavor::Defined(_) => todo!(),
-                                WordFlavor::Primitive(primitive) => { (primitive.function)(self); },
-                                WordFlavor::Lexicon(_) => { self.lex_in_use = word_index },
+                                WordFlavor::Primitive(primitive) => {
+                                    if let Err(_) = (primitive.function)(self) {
+                                        //TODO: throw error
+                                    }
+                                },
+                                WordFlavor::Lexicon(_) => {
+                                    self.stack.push(Cell::WordRef(word_index));
+                                },
                                 WordFlavor::Link(_) => todo!(),
                             }
                         }
