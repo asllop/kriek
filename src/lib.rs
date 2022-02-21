@@ -24,8 +24,9 @@ pub fn word_name_from_str(name: &str) -> (WordName, u8) {
 /// Error type
 pub enum KrkErr {
     StackUnderun,
+    LevelStackUnderun,
     WrongType,
-    EmptyTIB,
+    EmptyTib,
     Other(&'static str, u16),
 }
 
@@ -357,7 +358,8 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
         root_lexicon.add_word(word_name, _self.root_lex);
         // Define list of primitive words inside Root
         _self.define_core_words(&[
-            ("+", false, plus), ("{", false, open_curly), ("}", true, close_curly),
+            ("+", false, plus), ("{", false, open_curly), ("}", true, close_curly), ("(", false, open_parenth),
+            (")", false, close_parenth), ("flush", false, flush),
         ]);
         
         _self
@@ -388,7 +390,7 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
         &mut self.tib
     }
 
-    pub fn run_next(&mut self) -> Result<bool, KrkErr> {
+    pub fn run_step(&mut self) -> Result<bool, KrkErr> {
         let (word_name, name_len) = self.tib.next_word();
         if name_len == 0 { return Ok(false) }
         if self.exec_mode {
@@ -467,7 +469,7 @@ fn plus<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<()
 fn open_curly<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
     let (_word_name, name_len) = context.tib().next_word();
     if name_len == 0 {
-        return Err(KrkErr::EmptyTIB);
+        return Err(KrkErr::EmptyTib);
     }
     //TODO: create a new defined word
     //TODO: set to compiling word
@@ -480,5 +482,24 @@ fn close_curly<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Re
     //TODO: store compiling word to current lexicon
     //TODO: set compiling word to None
     context.exec_mode = true;
+    Ok(())
+}
+
+fn open_parenth<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    context.stack().start_stack();
+    Ok(())
+}
+
+fn close_parenth<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    if let Some(_) = context.stack().end_stack() {
+        Ok(())
+    }
+    else {
+        Err(KrkErr::LevelStackUnderun)
+    }    
+}
+
+fn flush<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    context.stack().empty();
     Ok(())
 }
