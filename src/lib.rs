@@ -224,7 +224,7 @@ pub struct DefinedWord {
 impl Default for DefinedWord {
     fn default() -> Self {
         Self {
-            ref_count: 0,
+            ref_count: 1,
             code_len: 0,
             data_len: 0,
             definition: [Cell::Empty; DEFINITION_SIZE],
@@ -252,6 +252,7 @@ pub struct LinkWord {
 
 /// Lexicon word model
 pub struct LexiconWord {
+    ref_count: usize,
     imp: HashMap<WordName, usize>,
     dep: HashMap<WordName, usize>,
 }
@@ -259,6 +260,7 @@ pub struct LexiconWord {
 impl LexiconWord {
     pub fn new() -> Self {
         Self {
+            ref_count: 1,
             imp: HashMap::new(),
             dep: HashMap::new()
         }
@@ -312,6 +314,14 @@ impl<T: Iterator<Item=u8> + Sized> Words<T> {
         None
     }
 }
+
+/*
+TODO LIST:
+- Word compilation
+- Execution of Defined words
+- ARC
+- Primitive words: ${ } LITERAL DEF ! @ LEX . : [ ( ) TO AT $[ ]$
+*/
 
 pub struct Interpreter<T: Iterator<Item=u8> + Sized> {
     tib: TIB<T>,
