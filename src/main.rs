@@ -8,9 +8,9 @@ fn main() {
         Ok(b) => b
     } {
         println!("------------ DEBUG INFO ------------");
-        println!("{:#?}", interpreter.stack());
+        println!("{:#?}", interpreter.stack);
         let mut i = 0;
-        while let Some(word) = interpreter.words().word_at(i) {
+        while let Some(word) = interpreter.words.word_at(i) {
             let word_name_str = unsafe {
                 let arr = core::slice::from_raw_parts(word.name.as_ptr(), word.name_len as usize);
                 core::str::from_utf8_unchecked(arr)

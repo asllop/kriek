@@ -28,6 +28,7 @@ pub enum KrkErr {
     WrongType,
     EmptyTib,
     NotCompiling,
+    WordNotFound,
     Other(&'static str, u16),
 }
 
@@ -175,12 +176,9 @@ impl Aux {
 
 /// Word model
 pub struct Word<T: Iterator<Item=u8> + Sized> {
-    //TODO: remove pub
     pub name_len: u8,
-    //TODO: remove pub
     pub name: WordName,
     immediate: bool,
-    //TODO: remove pub
     pub flavor: WordFlavor<T>,
 }
 
@@ -231,7 +229,6 @@ pub struct DefinedWord {
     ref_count: usize,
     code_len: u8,
     data_len: u8,
-    //TODO: remove pub
     pub definition: WordDefinition,
 }
 
@@ -351,7 +348,6 @@ impl<T: Iterator<Item=u8> + Sized> Words<T> {
 
 /*
 TODO LIST:
-- Word compilation
 - Execution of Defined words
 - ARC
 - Primitive words: ${ } LITERAL DEF ! @ LEX . : [ ( ) TO AT $[ ]$
@@ -359,9 +355,9 @@ TODO LIST:
 
 pub struct Interpreter<T: Iterator<Item=u8> + Sized> {
     tib: TIB<T>,
-    words: Words<T>,
-    stack: Stack,
-    aux: Aux,
+    pub words: Words<T>,
+    pub stack: Stack,
+    pub aux: Aux,
     //TODO: return stack
     lex_in_use: usize,
     root_lex: usize,
@@ -407,17 +403,10 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
         }
     }
 
-    pub fn words(&mut self) -> &mut Words<T> { &mut self.words }
-
-    pub fn stack(&mut self) -> &mut Stack { &mut self.stack }
-
-    pub fn aux(&mut self) -> &mut Aux { &mut self.aux }
-
-    pub fn tib(&mut self) -> &mut TIB<T> { &mut self.tib }
-
     pub fn run_step(&mut self) -> Result<bool, KrkErr> {
         let (word_name, name_len) = self.tib.next_word();
         if name_len == 0 { return Ok(false) }
+        //TODO: primer cercar paraule i després provar de convertir a num (les paraules són més comunes que els nombres)
         if self.exec_mode {
             if let Some(num_cell) = Cell::number(word_name, name_len) {
                 self.stack.push(num_cell);
@@ -428,7 +417,12 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
                     self.exec_word(word_index)?;
                 }
                 else {
-                    //TODO: if we are not in Root, try it. If not, error, word not found
+                    if self.lex_in_use != self.root_lex {
+                        //TODO: try to find word in Root
+                    }
+                    else {
+                        return Err(KrkErr::WordNotFound);
+                    }
                 }
             }
         }
@@ -450,7 +444,12 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
                     }
                 }
                 else {
-                    //TODO: word does not exist, compile a dependency
+                    if self.lex_in_use != self.root_lex {
+                        //TODO: try to find word in Root
+                    }
+                    else {
+                        //TODO: compile a dependency
+                    }
                 }
             }
         }
@@ -461,7 +460,7 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
         let word = self.words.word_at(word_index).unwrap_or_else(|| panic!("Word not found at index {}", word_index));
         match &word.flavor {
             WordFlavor::Defined(_defined) => {
-                // TODO
+                // TODO: execute defined word
             },
             WordFlavor::Primitive(primitive) => {
                 (primitive.function)(self)?;
@@ -469,19 +468,21 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
             WordFlavor::Lexicon(_) => {
                 self.stack.push(Cell::WordRef(word_index));
             },
-            WordFlavor::Link(_) => todo!(),
+            WordFlavor::Link(_) => {
+                // TODO: point to another word and try to execute
+            },
         }
         Ok(())
     }
 }
 
 fn plus<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
-    if let (Some(a_cell), Some(b_cell)) = (context.stack().pop(), context.stack().pop()) {
+    if let (Some(a_cell), Some(b_cell)) = (context.stack.pop(), context.stack.pop()) {
         if let (Cell::Integer(a_int), Cell::Integer(b_int)) = (&a_cell, &b_cell) {
-            context.stack().push(Cell::Integer(a_int + b_int));
+            context.stack.push(Cell::Integer(a_int + b_int));
         }
         else if let (Cell::Float(a_flt), Cell::Float(b_flt)) = (&a_cell, &b_cell) {
-            context.stack().push(Cell::Float(a_flt + b_flt));
+            context.stack.push(Cell::Float(a_flt + b_flt));
         }
         else {
             return Err(KrkErr::WrongType);
@@ -494,7 +495,7 @@ fn plus<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<()
 }
 
 fn open_curly<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
-    let (word_name, name_len) = context.tib().next_word();
+    let (word_name, name_len) = context.tib.next_word();
     if name_len == 0 {
         return Err(KrkErr::EmptyTib);
     }
@@ -510,8 +511,8 @@ fn close_curly<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Re
         let lex_in_use = context.lex_in_use;
         let word = core::mem::replace(&mut context.compiling, None).unwrap();
         let word_name = word.name.clone();
-        let word_index = context.words().add_word(word);
-        let lex = context.words().lexicon_at(lex_in_use);
+        let word_index = context.words.add_word(word);
+        let lex = context.words.lexicon_at(lex_in_use);
         lex.add_word(word_name, word_index);
         context.exec_mode = true;
         Ok(())
@@ -522,12 +523,12 @@ fn close_curly<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Re
 }
 
 fn open_parenth<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
-    context.stack().start_stack();
+    context.stack.start_stack();
     Ok(())
 }
 
 fn close_parenth<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
-    if let Some(_) = context.stack().end_stack() {
+    if let Some(_) = context.stack.end_stack() {
         Ok(())
     }
     else {
@@ -536,6 +537,6 @@ fn close_parenth<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> 
 }
 
 fn flush<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
-    context.stack().empty();
+    context.stack.empty();
     Ok(())
 }
