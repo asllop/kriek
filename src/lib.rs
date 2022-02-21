@@ -292,13 +292,13 @@ impl<T: Iterator<Item=u8> + Sized> Words<T> {
         self.words.get_mut(index)
     }
 
-    pub fn lexicon_at(&mut self, index: usize) -> &mut LexiconWord {
+    pub fn lexicon_at(&mut self, index: usize) -> Option<&mut LexiconWord> {
         if let Some(word) = self.word_at(index) {
             if let WordFlavor::Lexicon(lex) = &mut word.flavor {
-                return lex;
+                return Some(lex);
             }
         }
-        panic!("Word at index {} is not a lexicon", index);
+        None
     }
 }
 
@@ -370,24 +370,10 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
                     self.stack.push(num_cell);
                 }
                 else {
-                    let lex = self.words.lexicon_at(self.lex_in_use);
+                    let lex = self.words.lexicon_at(self.lex_in_use).unwrap_or_else(|| panic!("Word at index {} is not a lexicon", self.lex_in_use));
                     if let Some(word_index) = lex.find_word(&word_name) {
-                        if let Some(word) = self.words.word_at(word_index) {
-
-                            //TODO: primitive functions must return a Result<(), KrkErr>, they are responsible of handling stack errors, etc.
-
-                            match &word.flavor {
-                                WordFlavor::Defined(_) => todo!(),
-                                WordFlavor::Primitive(primitive) => {
-                                    if let Err(_) = (primitive.function)(self) {
-                                        //TODO: throw error
-                                    }
-                                },
-                                WordFlavor::Lexicon(_) => {
-                                    self.stack.push(Cell::WordRef(word_index));
-                                },
-                                WordFlavor::Link(_) => todo!(),
-                            }
+                        if let Err(_) = self.exec_word(word_index) {
+                            //TODO: throw error
                         }
                     }
                     else {
@@ -403,6 +389,23 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
         else {
             false
         }
+    }
+
+    fn exec_word(&mut self, word_index: usize) -> Result<(), KrkErr> {
+        let word = self.words.word_at(word_index).unwrap_or_else(|| panic!("Word not found at index {}", word_index));
+        match &word.flavor {
+            WordFlavor::Defined(defined) => {
+                // TODO
+            },
+            WordFlavor::Primitive(primitive) => {
+                (primitive.function)(self)?;
+            },
+            WordFlavor::Lexicon(_) => {
+                self.stack.push(Cell::WordRef(word_index));
+            },
+            WordFlavor::Link(_) => todo!(),
+        }
+        Ok(())
     }
 }
 
