@@ -27,6 +27,7 @@ pub enum KrkErr {
     LevelStackUnderun,
     WrongType,
     EmptyTib,
+    NotCompiling,
     Other(&'static str, u16),
 }
 
@@ -174,10 +175,13 @@ impl Aux {
 
 /// Word model
 pub struct Word<T: Iterator<Item=u8> + Sized> {
-    name_len: u8,
-    name: WordName,
+    //TODO: remove pub
+    pub name_len: u8,
+    //TODO: remove pub
+    pub name: WordName,
     immediate: bool,
-    flavor: WordFlavor<T>,
+    //TODO: remove pub
+    pub flavor: WordFlavor<T>,
 }
 
 impl<T: Iterator<Item=u8> + Sized> Word<T> {
@@ -199,7 +203,14 @@ impl<T: Iterator<Item=u8> + Sized> Word<T> {
     }
 
     pub fn new_defined(word_name: WordName, name_len: u8, immediate: bool) -> Self {
-        Self::from_parts(word_name, name_len, immediate, WordFlavor::Defined(DefinedWord::default()))
+        Self::from_parts(word_name, name_len, immediate, WordFlavor::Defined(DefinedWord::new()))
+    }
+
+    pub fn as_defined(&mut self) -> &mut DefinedWord {
+        if let WordFlavor::Defined(word) = &mut self.flavor {
+            return word;
+        }
+        panic!("Not a defined word");
     }
 }
 
@@ -211,25 +222,45 @@ pub enum WordFlavor<T: Iterator<Item=u8> + Sized> {
     Link(LinkWord),
 }
 
-pub const DEFINITION_SIZE: usize = 64;
+pub const DEFINITION_SIZE: usize = 32; //TODO: 64
 pub type WordDefinition = [Cell; DEFINITION_SIZE];
 
+#[derive(Debug)]
 /// Defined word model
 pub struct DefinedWord {
     ref_count: usize,
     code_len: u8,
     data_len: u8,
-    definition: WordDefinition,
+    //TODO: remove pub
+    pub definition: WordDefinition,
 }
 
-impl Default for DefinedWord {
-    fn default() -> Self {
+impl DefinedWord {
+    pub fn new() -> Self {
         Self {
             ref_count: 1,
             code_len: 0,
             data_len: 0,
             definition: [Cell::Empty; DEFINITION_SIZE],
         }
+    }
+
+    pub fn compile_code(&mut self, cell: Cell) -> bool {
+        if self.code_len + self.data_len < DEFINITION_SIZE as u8 {
+            self.definition[self.code_len as usize] = cell;
+            self.code_len += 1;
+            true
+        }
+        else { false }
+    }
+
+    pub fn compile_data(&mut self, cell: Cell) -> bool {
+        if self.code_len + self.data_len < DEFINITION_SIZE as u8 {
+            self.definition[DEFINITION_SIZE - 1 - self.data_len as usize] = cell;
+            self.data_len += 1;
+            true
+        }
+        else { false }
     }
 }
 
@@ -246,11 +277,13 @@ impl<T: Iterator<Item=u8> + Sized> PrimitiveWord<T> {
     }
 }
 
+#[derive(Debug)]
 /// Link word model
 pub struct LinkWord {
     index: usize,
 }
 
+#[derive(Debug)]
 /// Lexicon word model
 pub struct LexiconWord {
     ref_count: usize,
@@ -306,13 +339,13 @@ impl<T: Iterator<Item=u8> + Sized> Words<T> {
         self.words.get_mut(index)
     }
 
-    pub fn lexicon_at(&mut self, index: usize) -> Option<&mut LexiconWord> {
+    pub fn lexicon_at(&mut self, index: usize) -> &mut LexiconWord {
         if let Some(word) = self.word_at(index) {
             if let WordFlavor::Lexicon(lex) = &mut word.flavor {
-                return Some(lex);
+                return lex;
             }
         }
-        None
+        panic!("Word at index {} is not a lexicon", index);
     }
 }
 
@@ -354,7 +387,7 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
         _self.root_lex = _self.words.add_word(Word::new_lexicon(word_name, name_len));
         _self.lex_in_use = _self.root_lex;
         // Root needs a reference to itself to be able to run the "Root" word
-        let root_lexicon = _self.words.lexicon_at(_self.root_lex).expect("Root lexicon not found");
+        let root_lexicon = _self.words.lexicon_at(_self.root_lex);
         root_lexicon.add_word(word_name, _self.root_lex);
         // Define list of primitive words inside Root
         _self.define_core_words(&[
@@ -369,26 +402,18 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
         for (word_name, immediate, function) in list {
             let (word_name, name_len) = word_name_from_str(word_name);
             let word_index = self.words.add_word(Word::new_primitive(word_name, name_len, *immediate, *function));
-            let root_lex = self.words.lexicon_at(self.root_lex).expect("Root lexicon not found");
+            let root_lex = self.words.lexicon_at(self.root_lex);
             root_lex.add_word(word_name, word_index);
         }
     }
 
-    pub fn words(&mut self) -> &mut Words<T> {
-        &mut self.words
-    }
+    pub fn words(&mut self) -> &mut Words<T> { &mut self.words }
 
-    pub fn stack(&mut self) -> &mut Stack {
-        &mut self.stack
-    }
+    pub fn stack(&mut self) -> &mut Stack { &mut self.stack }
 
-    pub fn aux(&mut self) -> &mut Aux {
-        &mut self.aux
-    }
+    pub fn aux(&mut self) -> &mut Aux { &mut self.aux }
 
-    pub fn tib(&mut self) -> &mut TIB<T> {
-        &mut self.tib
-    }
+    pub fn tib(&mut self) -> &mut TIB<T> { &mut self.tib }
 
     pub fn run_step(&mut self) -> Result<bool, KrkErr> {
         let (word_name, name_len) = self.tib.next_word();
@@ -398,32 +423,34 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
                 self.stack.push(num_cell);
             }
             else {
-                let lex = self.words.lexicon_at(self.lex_in_use).unwrap_or_else(|| panic!("Word at index {} is not a lexicon", self.lex_in_use));
+                let lex = self.words.lexicon_at(self.lex_in_use);
                 if let Some(word_index) = lex.find_word(&word_name) {
                     self.exec_word(word_index)?;
                 }
                 else {
-                    //TODO: if not in Root, try it. If not, error, word not found
+                    //TODO: if we are not in Root, try it. If not, error, word not found
                 }
             }
         }
         else {
-            if let Some(_num_cell) = Cell::number(word_name, name_len) {
-                //TODO: compile data
+            if let Some(num_cell) = Cell::number(word_name, name_len) {
+                let compiling_word = self.compiling.as_mut().expect("No compiling word while in compilation mode").as_defined();
+                compiling_word.compile_code(num_cell);
             }
             else {
-                let lex = self.words.lexicon_at(self.lex_in_use).unwrap_or_else(|| panic!("Word at index {} is not a lexicon", self.lex_in_use));
+                let lex = self.words.lexicon_at(self.lex_in_use);
                 if let Some(word_index) = lex.find_word(&word_name) {
                     let word = self.words.word_at(word_index).unwrap_or_else(|| panic!("Word not found at index {}", word_index));
                     if word.immediate {
                         self.exec_word(word_index)?;
                     }
                     else {
-                        //TODO: compile word
+                        let compiling_word = self.compiling.as_mut().expect("No compiling word while in compilation mode").as_defined();
+                        compiling_word.compile_code(Cell::WordRef(word_index));
                     }
                 }
                 else {
-                    //TODO: do not exist, compile a dependency
+                    //TODO: word does not exist, compile a dependency
                 }
             }
         }
@@ -467,22 +494,31 @@ fn plus<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<()
 }
 
 fn open_curly<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
-    let (_word_name, name_len) = context.tib().next_word();
+    let (word_name, name_len) = context.tib().next_word();
     if name_len == 0 {
         return Err(KrkErr::EmptyTib);
     }
-    //TODO: create a new defined word
-    //TODO: set to compiling word
+    context.compiling = Some(Word::new_defined(word_name, name_len, false));
     context.exec_mode = false;
     Ok(())
 }
 
 fn close_curly<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
-    //TODO: put an END to compiling word
-    //TODO: store compiling word to current lexicon
-    //TODO: set compiling word to None
-    context.exec_mode = true;
-    Ok(())
+    if let Some(_) = context.compiling {
+        //TODO: put an END to compiling word
+        // Store compiling word to current lexicon
+        let lex_in_use = context.lex_in_use;
+        let word = core::mem::replace(&mut context.compiling, None).unwrap();
+        let word_name = word.name.clone();
+        let word_index = context.words().add_word(word);
+        let lex = context.words().lexicon_at(lex_in_use);
+        lex.add_word(word_name, word_index);
+        context.exec_mode = true;
+        Ok(())
+    }
+    else {
+        Err(KrkErr::NotCompiling)
+    }
 }
 
 fn open_parenth<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
