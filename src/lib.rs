@@ -375,59 +375,44 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
         &mut self.tib
     }
 
-    pub fn run(&mut self) {
-        while self.run_next() {}
-    }
-
-    pub fn run_next(&mut self) -> bool {
+    pub fn run_next(&mut self) -> Result<bool, KrkErr> {
         let (word_name, name_len) = self.tib.next_word();
-        if name_len > 0 {
-            if self.exec_mode {
-                if let Some(num_cell) = Cell::number(word_name, name_len) {
-                    self.stack.push(num_cell);
-                }
-                else {
-                    let lex = self.words.lexicon_at(self.lex_in_use).unwrap_or_else(|| panic!("Word at index {} is not a lexicon", self.lex_in_use));
-                    if let Some(word_index) = lex.find_word(&word_name) {
-                        if let Err(e) = self.exec_word(word_index) {
-                            //TODO: throw error
-                            panic!("Word thrown an error {:?}", e);
-                        }
-                    }
-                    else {
-                        //TODO: if not in Root, try it. If not, error, word not found
-                        panic!("Word not found");
-                    }
-                }
+        if name_len == 0 { return Ok(false) }
+        if self.exec_mode {
+            if let Some(num_cell) = Cell::number(word_name, name_len) {
+                self.stack.push(num_cell);
             }
             else {
-                if let Some(_num_cell) = Cell::number(word_name, name_len) {
-                    //TODO: compile data
+                let lex = self.words.lexicon_at(self.lex_in_use).unwrap_or_else(|| panic!("Word at index {} is not a lexicon", self.lex_in_use));
+                if let Some(word_index) = lex.find_word(&word_name) {
+                    self.exec_word(word_index)?;
                 }
                 else {
-                    let lex = self.words.lexicon_at(self.lex_in_use).unwrap_or_else(|| panic!("Word at index {} is not a lexicon", self.lex_in_use));
-                    if let Some(word_index) = lex.find_word(&word_name) {
-                        let word = self.words.word_at(word_index).unwrap_or_else(|| panic!("Word not found at index {}", word_index));
-                        if word.immediate {
-                            if let Err(e) = self.exec_word(word_index) {
-                                //TODO: throw error
-                                panic!("Word thrown an error {:?}", e);
-                            }
-                        }
-                        else {
-                            //TODO: compile word
-                        }
-                    }
-                    else {
-                        //TODO: do not exist, compile a dependency
-                    }
+                    //TODO: if not in Root, try it. If not, error, word not found
                 }
             }
-            true
         }
         else {
-            false
+            if let Some(_num_cell) = Cell::number(word_name, name_len) {
+                //TODO: compile data
+            }
+            else {
+                let lex = self.words.lexicon_at(self.lex_in_use).unwrap_or_else(|| panic!("Word at index {} is not a lexicon", self.lex_in_use));
+                if let Some(word_index) = lex.find_word(&word_name) {
+                    let word = self.words.word_at(word_index).unwrap_or_else(|| panic!("Word not found at index {}", word_index));
+                    if word.immediate {
+                        self.exec_word(word_index)?;
+                    }
+                    else {
+                        //TODO: compile word
+                    }
+                }
+                else {
+                    //TODO: do not exist, compile a dependency
+                }
+            }
         }
+        Ok(true)
     }
 
     fn exec_word(&mut self, word_index: usize) -> Result<(), KrkErr> {
