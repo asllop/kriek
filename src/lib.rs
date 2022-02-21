@@ -340,13 +340,16 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
 
         // Create Root lexicon
         let (word_name, name_len) = word_name_from_str("Root");
-        _self.root_lex = _self.words().add_word(Word::new_lexicon(word_name, name_len));
+        _self.root_lex = _self.words.add_word(Word::new_lexicon(word_name, name_len));
         _self.lex_in_use = _self.root_lex;
-
+        // Root needs a reference to itself to be able to run the "Root" word
+        let root_lexicon = _self.words.lexicon_at(_self.root_lex).expect("Root lexicon not found");
+        root_lexicon.add_word(word_name, _self.root_lex);
+        // Define list of primitive words inside Root
         _self.define_core_words(&[
             ("+", false, plus), ("{", false, open_curly), ("}", true, close_curly),
         ]);
-
+        
         _self
     }
 
