@@ -387,8 +387,9 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
         root_lexicon.add_word(word_name, _self.root_lex);
         // Define list of primitive words inside Root
         _self.define_core_words(&[
-            ("+", false, plus), ("{", false, open_curly), ("}", true, close_curly), ("(", false, open_parenth),
-            (")", false, close_parenth), ("flush", false, flush),
+            ("+", false, plus), ("-", false, minus), ("*", false, star), ("/", false, slash), ("%", false, percent),
+            ("{", false, open_curly), ("}", true, close_curly), ("(", false, open_parenth), (")", false, close_parenth),
+            ("flush", false, flush),
         ]);
         
         _self
@@ -474,15 +475,26 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
         }
         Ok(())
     }
+
+    //TODO: execute a defined word by steps:
+    // - Read cell from the CEP (Cell Execution Pointer).
+    // - If Cell available:
+    //   - If number or alloc ref: Push it, inc CEP and end.
+    //   - If word ref to defined: Inc CEP, put it to return stack, point CEP to start of new word and end.
+    //   - If word ref to other word flavour: exec_word(), inc CEP and end
+    // - If no more cells to execute:
+    //   - Get pointer from return stack.
+    //   - If return stack empty: Return to TIB mode.
+    //   - If index available: Put index in the CEP for the next step and end.
 }
 
-fn plus<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
-    if let (Some(a_cell), Some(b_cell)) = (context.stack.pop(), context.stack.pop()) {
+fn two_num_op_template<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>, int_op: fn(KrkInt, KrkInt) -> KrkInt, flt_op: fn(KrkFlt, KrkFlt) -> KrkFlt) -> Result<(), KrkErr> {
+    if let (Some(b_cell), Some(a_cell)) = (context.stack.pop(), context.stack.pop()) {
         if let (Cell::Integer(a_int), Cell::Integer(b_int)) = (&a_cell, &b_cell) {
-            context.stack.push(Cell::Integer(a_int + b_int));
+            context.stack.push(Cell::Integer(int_op(*a_int, *b_int)));
         }
         else if let (Cell::Float(a_flt), Cell::Float(b_flt)) = (&a_cell, &b_cell) {
-            context.stack.push(Cell::Float(a_flt + b_flt));
+            context.stack.push(Cell::Float(flt_op(*a_flt, *b_flt)));
         }
         else {
             return Err(KrkErr::WrongType);
@@ -492,6 +504,26 @@ fn plus<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<()
         return Err(KrkErr::StackUnderun);
     }
     Ok(())
+}
+
+fn plus<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    two_num_op_template(context, |a, b| a + b, |a, b| a + b)
+}
+
+fn minus<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    two_num_op_template(context, |a, b| a - b, |a, b| a - b)
+}
+
+fn star<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    two_num_op_template(context, |a, b| a * b, |a, b| a * b)
+}
+
+fn slash<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    two_num_op_template(context, |a, b| a / b, |a, b| a / b)
+}
+
+fn percent<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    two_num_op_template(context, |a, b| a % b, |a, b| a % b)
 }
 
 fn open_curly<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
