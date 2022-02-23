@@ -388,6 +388,7 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
         // Define list of primitive words inside Root
         _self.define_core_words(&[
             ("+", false, plus), ("-", false, minus), ("*", false, star), ("/", false, slash), ("%", false, percent),
+            ("and", false, and), ("or", false, or), ("not", false, not),
             ("{", false, open_curly), ("}", true, close_curly), ("(", false, open_parenth), (")", false, close_parenth),
             ("flush", false, flush),
         ]);
@@ -524,6 +525,44 @@ fn slash<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(
 
 fn percent<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
     two_num_op_template(context, |a, b| a % b, |a, b| a % b)
+}
+
+fn two_int_op_template<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>, int_op: fn(KrkInt, KrkInt) -> KrkInt) -> Result<(), KrkErr> {
+    if let (Some(b_cell), Some(a_cell)) = (context.stack.pop(), context.stack.pop()) {
+        if let (Cell::Integer(a_int), Cell::Integer(b_int)) = (&a_cell, &b_cell) {
+            context.stack.push(Cell::Integer(int_op(*a_int, *b_int)));
+        }
+        else {
+            return Err(KrkErr::WrongType);
+        }
+    }
+    else {
+        return Err(KrkErr::StackUnderun);
+    }
+    Ok(())
+}
+
+fn and<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    two_int_op_template(context, |a, b| a & b)
+}
+
+fn or<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    two_int_op_template(context, |a, b| a | b)
+}
+
+fn not<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    if let Some(a_cell) = context.stack.pop() {
+        if let Cell::Integer(a_int) = &a_cell {
+            context.stack.push(Cell::Integer(!*a_int));
+        }
+        else {
+            return Err(KrkErr::WrongType);
+        }
+    }
+    else {
+        return Err(KrkErr::StackUnderun);
+    }
+    Ok(())
 }
 
 fn open_curly<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
