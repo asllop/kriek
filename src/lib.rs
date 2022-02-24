@@ -397,14 +397,15 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
     }
 
     fn define_core_words(&mut self, list: &[(&str, bool, fn(&mut Interpreter<T>) -> Result<(), KrkErr>)]) {
-        list.iter().for_each(|(word_name, immediate, function)| self.define_primitive(self.root_lex, word_name, *immediate, *function));
+        list.iter().for_each(|(word_name, immediate, function)| { self.define_primitive(self.root_lex, word_name, *immediate, *function); });
     }
 
-    pub fn define_primitive(&mut self, lexicon: usize, word_name: &str, immediate: bool, function: fn(&mut Interpreter<T>) -> Result<(), KrkErr>) {
+    pub fn define_primitive(&mut self, lexicon: usize, word_name: &str, immediate: bool, function: fn(&mut Interpreter<T>) -> Result<(), KrkErr>) -> usize {
         let (word_name, name_len) = word_name_from_str(word_name);
         let word_index = self.words.add_word(Word::new_primitive(word_name, name_len, immediate, function));
         let lex = self.words.lexicon_at(lexicon);
         lex.add_word(word_name, word_index);
+        word_index
     }
 
     pub fn run_step(&mut self) -> Result<bool, KrkErr> {
