@@ -456,64 +456,75 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
 
     pub fn run_step(&mut self) -> Result<bool, KrkErr> {
         if let Ok(true) = self.exec_def_word_step() {
+            // Executing a defined word
             return Ok(true);
         }
+        // Running words from the TIB
         let (word_name, name_len) = self.tib.next_word();
         if name_len == 0 {
             return Ok(false);
         }
         if self.exec_mode {
-            if let Some(num_cell) = Cell::number(word_name, name_len) {
-                self.stack.push(num_cell);
+            self.run_in_exec_mode(word_name, name_len)
+        }
+        else {
+            self.run_in_compile_mode(word_name, name_len)
+        }
+    }
+
+    fn run_in_exec_mode(&mut self, word_name: WordName, name_len: u8)  -> Result<bool, KrkErr> {
+        if let Some(num_cell) = Cell::number(word_name, name_len) {
+            self.stack.push(num_cell);
+        }
+        else {
+            let lex = self.words.lexicon_at(self.lex_in_use);
+            if let Some(word_index) = lex.find_word(&word_name) {
+                self.exec_word(word_index)?;
             }
             else {
-                let lex = self.words.lexicon_at(self.lex_in_use);
-                if let Some(word_index) = lex.find_word(&word_name) {
-                    self.exec_word(word_index)?;
+                if self.lex_in_use != self.root_lex {
+                    //TODO: try to find word in Root
+                    todo!("try to find word in Root to run")
                 }
                 else {
-                    if self.lex_in_use != self.root_lex {
-                        //TODO: try to find word in Root
-                        todo!("try to find word in Root to run")
-                    }
-                    else {
-                        return Err(KrkErr::WordNotFound);
-                    }
+                    return Err(KrkErr::WordNotFound);
                 }
             }
         }
+        Ok(true)
+    }
+
+    fn run_in_compile_mode(&mut self, word_name: WordName, name_len: u8)  -> Result<bool, KrkErr> {
+        if let Some(num_cell) = Cell::number(word_name, name_len) {
+            let compiling_word = self.compiling
+                .as_mut()
+                .expect("No compiling word while in compilation mode")
+                .as_defined();
+            compiling_word.compile_code(num_cell);
+        }
         else {
-            if let Some(num_cell) = Cell::number(word_name, name_len) {
-                let compiling_word = self.compiling
-                    .as_mut()
-                    .expect("No compiling word while in compilation mode")
-                    .as_defined();
-                compiling_word.compile_code(num_cell);
-            }
-            else {
-                let lex = self.words.lexicon_at(self.lex_in_use);
-                if let Some(word_index) = lex.find_word(&word_name) {
-                    let word = self.words.word_at(word_index).unwrap_or_else(|| panic!("Word not found at index {}", word_index));
-                    if word.immediate {
-                        self.exec_word(word_index)?;
-                    }
-                    else {
-                        let compiling_word = self.compiling
-                            .as_mut()
-                            .expect("No compiling word while in compilation mode")
-                            .as_defined();
-                        compiling_word.compile_code(Cell::WordRef(word_index));
-                    }
+            let lex = self.words.lexicon_at(self.lex_in_use);
+            if let Some(word_index) = lex.find_word(&word_name) {
+                let word = self.words.word_at(word_index).unwrap_or_else(|| panic!("Word not found at index {}", word_index));
+                if word.immediate {
+                    self.exec_word(word_index)?;
                 }
                 else {
-                    if self.lex_in_use != self.root_lex {
-                        //TODO: try to find word in Root
-                        todo!("try to find word in Root to compile")
-                    }
-                    else {
-                        //TODO: compile a dependency
-                        todo!("compile a dependency")
-                    }
+                    let compiling_word = self.compiling
+                        .as_mut()
+                        .expect("No compiling word while in compilation mode")
+                        .as_defined();
+                    compiling_word.compile_code(Cell::WordRef(word_index));
+                }
+            }
+            else {
+                if self.lex_in_use != self.root_lex {
+                    //TODO: try to find word in Root
+                    todo!("try to find word in Root to compile")
+                }
+                else {
+                    //TODO: compile a dependency
+                    todo!("compile a dependency")
                 }
             }
         }
@@ -540,7 +551,7 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
         Ok(())
     }
 
-    pub fn exec_def_word_step(&mut self) -> Result<bool, KrkErr> {
+    fn exec_def_word_step(&mut self) -> Result<bool, KrkErr> {
         if let Some(cep) = &mut self.current_cep {
             // Currently executing a defined word.
             if let Some(next_cell) = cep.next_cell(&mut self.words) {
