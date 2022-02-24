@@ -1,7 +1,7 @@
 use kriek::{Interpreter, WordFlavor};
 
 fn main() {
-    let program = "10 20 + , 5.5 1.1 + { suma 10 20 + } Root ( 1 2 + flush )".bytes();
+    let program = "10 20 + , 5.5 1.1 + Root ( 1 2 + flush ) { suma 10 20 + } suma { suma suma 2 / } suma".bytes();
     let mut interpreter = Interpreter::new(program);
     while match interpreter.run_step() {
         Err(e) => { println!("Exception = {:?}", e); false },

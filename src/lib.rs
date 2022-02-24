@@ -161,16 +161,16 @@ impl Stack {
 }
 
 /// Auxiliary stack
-pub struct Aux(Vec<Cell>);
+pub struct AuxStack(Vec<Cell>);
 
-impl Aux {
+impl AuxStack {
     /// Create new stack
     pub fn new() -> Self { Self(Vec::new()) }
 
-    /// Push cell to current stack
+    /// Push cell
     pub fn push(&mut self, cell: Cell) { self.0.push(cell); }
 
-    /// Pop cell from current stack
+    /// Pop cell
     pub fn pop(&mut self) -> Option<Cell> { self.0.pop() }
 }
 
@@ -346,6 +346,49 @@ impl<T: Iterator<Item=u8> + Sized> Words<T> {
     }
 }
 
+#[derive(Clone, Copy)]
+/// Cell Execution Pointer
+pub struct CEP {
+    word_index: usize,
+    cell_index: u8,
+}
+
+impl CEP {
+    pub fn new(word_index: usize) -> Self {
+        Self {
+            word_index,
+            cell_index: 0,
+        }
+    }
+
+    pub fn next_cell<T: Iterator<Item=u8> + Sized>(&mut self, words: &mut Words<T>) -> Option<Cell> {
+        let word = words.word_at(self.word_index).expect("CEP trying to read from an empty word index");
+        let defined = word.as_defined();
+        if defined.code_len > self.cell_index {
+            let index = self.cell_index as usize;
+            self.cell_index += 1;
+            Some(defined.definition[index])
+        }
+        else {
+            None
+        }
+    }
+}
+
+/// Return Stack
+pub struct ReturnStack(Vec<CEP>);
+
+impl ReturnStack {
+    /// Create new stack
+    pub fn new() -> Self { Self(Vec::new()) }
+
+    /// Push pointer
+    pub fn push(&mut self, cep: CEP) { self.0.push(cep); }
+
+    /// Pop pointer
+    pub fn pop(&mut self) -> Option<CEP> { self.0.pop() }
+}
+
 /*
 TODO LIST:
 - Execution of Defined words
@@ -357,8 +400,9 @@ pub struct Interpreter<T: Iterator<Item=u8> + Sized> {
     tib: TIB<T>,
     pub words: Words<T>,
     pub stack: Stack,
-    pub aux: Aux,
-    //TODO: return stack
+    pub aux: AuxStack,
+    ret: ReturnStack,
+    current_cep: Option<CEP>,
     lex_in_use: usize,
     root_lex: usize,
     exec_mode: bool,
@@ -371,7 +415,9 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
             tib: TIB::new(reader),
             words: Words::new(),
             stack: Stack::new(),
-            aux: Aux::new(),
+            aux: AuxStack::new(),
+            ret: ReturnStack::new(),
+            current_cep: None,
             lex_in_use: 0,
             root_lex: 0,
             exec_mode: true,
@@ -409,9 +455,13 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
     }
 
     pub fn run_step(&mut self) -> Result<bool, KrkErr> {
+        if let Ok(true) = self.exec_def_word_step() {
+            return Ok(true);
+        }
         let (word_name, name_len) = self.tib.next_word();
-        if name_len == 0 { return Ok(false) }
-        //TODO: primer cercar paraule i després provar de convertir a num (les paraules són més comunes que els nombres)
+        if name_len == 0 {
+            return Ok(false);
+        }
         if self.exec_mode {
             if let Some(num_cell) = Cell::number(word_name, name_len) {
                 self.stack.push(num_cell);
@@ -424,6 +474,7 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
                 else {
                     if self.lex_in_use != self.root_lex {
                         //TODO: try to find word in Root
+                        todo!("try to find word in Root to run")
                     }
                     else {
                         return Err(KrkErr::WordNotFound);
@@ -433,7 +484,10 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
         }
         else {
             if let Some(num_cell) = Cell::number(word_name, name_len) {
-                let compiling_word = self.compiling.as_mut().expect("No compiling word while in compilation mode").as_defined();
+                let compiling_word = self.compiling
+                    .as_mut()
+                    .expect("No compiling word while in compilation mode")
+                    .as_defined();
                 compiling_word.compile_code(num_cell);
             }
             else {
@@ -444,16 +498,21 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
                         self.exec_word(word_index)?;
                     }
                     else {
-                        let compiling_word = self.compiling.as_mut().expect("No compiling word while in compilation mode").as_defined();
+                        let compiling_word = self.compiling
+                            .as_mut()
+                            .expect("No compiling word while in compilation mode")
+                            .as_defined();
                         compiling_word.compile_code(Cell::WordRef(word_index));
                     }
                 }
                 else {
                     if self.lex_in_use != self.root_lex {
                         //TODO: try to find word in Root
+                        todo!("try to find word in Root to compile")
                     }
                     else {
                         //TODO: compile a dependency
+                        todo!("compile a dependency")
                     }
                 }
             }
@@ -464,8 +523,8 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
     fn exec_word(&mut self, word_index: usize) -> Result<(), KrkErr> {
         let word = self.words.word_at(word_index).unwrap_or_else(|| panic!("Word not found at index {}", word_index));
         match &word.flavor {
-            WordFlavor::Defined(_defined) => {
-                // TODO: execute defined word
+            WordFlavor::Defined(_) => {
+                self.current_cep = Some(CEP::new(word_index));
             },
             WordFlavor::Primitive(primitive) => {
                 (primitive.function)(self)?;
@@ -475,21 +534,59 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
             },
             WordFlavor::Link(_) => {
                 // TODO: point to another word and try to execute
+                todo!("point to another word and try to execute")
             },
         }
         Ok(())
     }
 
-    //TODO: execute a defined word by steps:
-    // - Read cell from the CEP (Cell Execution Pointer).
-    // - If Cell available:
-    //   - If number or alloc ref: Push it, inc CEP and end.
-    //   - If word ref to defined: Inc CEP, put it to return stack, point CEP to start of new word and end.
-    //   - If word ref to other word flavour: exec_word(), inc CEP and end
-    // - If no more cells to execute:
-    //   - Get pointer from return stack.
-    //   - If return stack empty: Return to TIB mode.
-    //   - If index available: Put index in the CEP for the next step and end.
+    pub fn exec_def_word_step(&mut self) -> Result<bool, KrkErr> {
+        if let Some(cep) = &mut self.current_cep {
+            // Currently executing a defined word.
+            if let Some(next_cell) = cep.next_cell(&mut self.words) {
+                // Cell available
+                match next_cell {
+                    Cell::Empty => panic!("Executing an empty cell"),
+                    Cell::Integer(_) | Cell::Float(_) | Cell::AllocRef(_) => self.stack.push(next_cell),
+                    Cell::WordRef(w_index) => {
+                        if let Some(word) = self.words.word_at(w_index) {
+                            match &word.flavor {
+                                WordFlavor::Defined(_) => {
+                                    self.ret.push(*cep);
+                                    self.current_cep = Some(CEP::new(w_index));
+                                },
+                                WordFlavor::Primitive(p) => {
+                                    (p.function)(self)?;
+                                },
+                                WordFlavor::Lexicon(_) => self.stack.push(next_cell),
+                                WordFlavor::Link(_) => todo!(),
+                            }
+                        }
+                        else {
+                            panic!("Executing a word that doesn't exist")
+                        }
+                    },
+                }
+                Ok(true)
+            }
+            else {
+                // No more cells to execute: pop CEP from return stack and use as current CEP
+                if let Some(cep) = self.ret.pop() {
+                    self.current_cep = Some(cep);
+                    Ok(true)
+                }
+                else {
+                    // Return stack is empty, return to TIB mode
+                    self.current_cep = None;
+                    Ok(false)
+                }
+            }
+        }
+        else {
+            // Not executing a defined word, we are in TIB mode
+            Ok(false)
+        }
+    }
 }
 
 fn two_num_op_template<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>, int_op: fn(KrkInt, KrkInt) -> KrkInt, flt_op: fn(KrkFlt, KrkFlt) -> KrkFlt) -> Result<(), KrkErr> {
