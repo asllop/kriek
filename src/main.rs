@@ -14,6 +14,11 @@ fn main() {
         1 2 ~= debug_print
         { 1+ 1 + }
         30 1+ debug_print
+        stack_print
+        ->aux
+        stack_print
+        aux->
+        stack_print
     ".bytes());
 
     // Root lexicon is alwais at index 0

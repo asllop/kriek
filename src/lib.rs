@@ -33,6 +33,7 @@ pub fn word_name_from_str(name: &str) -> (WordName, u8) {
 pub enum KrkErr {
     StackUnderun,
     LevelStackUnderun,
+    AuxStackUnderun,
     WrongType,
     EmptyTib,
     NotCompiling,
@@ -401,7 +402,7 @@ pub struct Interpreter<T: Iterator<Item=u8> + Sized> {
     tib: TIB<T>,
     pub words: Words<T>,
     pub stack: Stack,
-    pub aux: AuxStack,
+    aux: AuxStack,
     ret: ReturnStack,
     current_cep: Option<CEP>,
     lex_in_use: usize,
@@ -437,7 +438,7 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
             ("+", false, plus), ("-", false, minus), ("*", false, star), ("/", false, slash), ("%", false, percent),
             ("<", false, smaller), ("=", false, equal), ("and", false, and), ("or", false, or), ("not", false, not),
             ("{", false, open_curly), ("}", true, close_curly), ("(", false, open_parenth), (")", false, close_parenth),
-            ("flush", false, flush),
+            ("flush", false, flush), ("->aux", false, to_aux), ("aux->", false, from_aux),
         ]);
         
         _self
@@ -747,4 +748,24 @@ pub fn close_parenth<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>)
 pub fn flush<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
     context.stack.empty();
     Ok(())
+}
+
+pub fn to_aux<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    if let Some(cell) = context.stack.pop() {
+        context.aux.push(cell);
+        Ok(())
+    }
+    else {
+        Err(KrkErr::StackUnderun)
+    }
+}
+
+pub fn from_aux<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    if let Some(cell) = context.aux.pop() {
+        context.stack.push(cell);
+        Ok(())
+    }
+    else {
+        Err(KrkErr::AuxStackUnderun)
+    }
 }
