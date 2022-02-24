@@ -391,9 +391,9 @@ impl ReturnStack {
 
 /*
 TODO LIST:
-- Execution of Defined words
 - ARC
 - Primitive words: ${ } LITERAL DEF ! @ LEX . : [ ( ) TO AT $[ ]$
+- Lexicon unions and associated words
 */
 
 pub struct Interpreter<T: Iterator<Item=u8> + Sized> {
