@@ -1,3 +1,11 @@
+/*
+TODO LIST:
+- ARC, allocs and words ! @
+- Stack transfers
+- Primitive words: ${ } LITERAL DEF LEX . : TO AT $[ ]$
+- Lexicon unions and associated words
+*/
+
 #![no_std]
 
 extern crate alloc;
@@ -389,13 +397,6 @@ impl ReturnStack {
     pub fn pop(&mut self) -> Option<CEP> { self.0.pop() }
 }
 
-/*
-TODO LIST:
-- ARC
-- Primitive words: ${ } LITERAL DEF ! @ LEX . : [ ( ) TO AT $[ ]$
-- Lexicon unions and associated words
-*/
-
 pub struct Interpreter<T: Iterator<Item=u8> + Sized> {
     tib: TIB<T>,
     pub words: Words<T>,
@@ -570,7 +571,7 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
                                     (p.function)(self)?;
                                 },
                                 WordFlavor::Lexicon(_) => self.stack.push(next_cell),
-                                WordFlavor::Link(_) => todo!(),
+                                WordFlavor::Link(_) => todo!("Exec a link in a defined word"),
                             }
                         }
                         else {
@@ -618,27 +619,27 @@ fn two_num_op_template<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T
     Ok(())
 }
 
-fn plus<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+pub fn plus<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
     two_num_op_template(context, |a, b| a + b, |a, b| a + b)
 }
 
-fn minus<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+pub fn minus<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
     two_num_op_template(context, |a, b| a - b, |a, b| a - b)
 }
 
-fn star<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+pub fn star<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
     two_num_op_template(context, |a, b| a * b, |a, b| a * b)
 }
 
-fn slash<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+pub fn slash<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
     two_num_op_template(context, |a, b| a / b, |a, b| a / b)
 }
 
-fn percent<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+pub fn percent<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
     two_num_op_template(context, |a, b| a % b, |a, b| a % b)
 }
 
-fn two_num_comp_template<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>, int_op: fn(KrkInt, KrkInt) -> bool, flt_op: fn(KrkFlt, KrkFlt) -> bool) -> Result<(), KrkErr> {
+pub fn two_num_comp_template<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>, int_op: fn(KrkInt, KrkInt) -> bool, flt_op: fn(KrkFlt, KrkFlt) -> bool) -> Result<(), KrkErr> {
     if let (Some(b_cell), Some(a_cell)) = (context.stack.pop(), context.stack.pop()) {
         if let (Cell::Integer(a_int), Cell::Integer(b_int)) = (&a_cell, &b_cell) {
             context.stack.push(Cell::Integer(if int_op(*a_int, *b_int) { -1 } else { 0 }));
@@ -656,15 +657,15 @@ fn two_num_comp_template<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter
     Ok(())
 }
 
-fn smaller<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+pub fn smaller<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
     two_num_comp_template(context, |a, b| a < b, |a, b| a < b)
 }
 
-fn equal<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+pub fn equal<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
     two_num_comp_template(context, |a, b| a == b, |a, b| a == b)
 }
 
-fn two_int_op_template<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>, int_op: fn(KrkInt, KrkInt) -> KrkInt) -> Result<(), KrkErr> {
+pub fn two_int_op_template<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>, int_op: fn(KrkInt, KrkInt) -> KrkInt) -> Result<(), KrkErr> {
     if let (Some(b_cell), Some(a_cell)) = (context.stack.pop(), context.stack.pop()) {
         if let (Cell::Integer(a_int), Cell::Integer(b_int)) = (&a_cell, &b_cell) {
             context.stack.push(Cell::Integer(int_op(*a_int, *b_int)));
@@ -679,15 +680,15 @@ fn two_int_op_template<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T
     Ok(())
 }
 
-fn and<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+pub fn and<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
     two_int_op_template(context, |a, b| a & b)
 }
 
-fn or<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+pub fn or<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
     two_int_op_template(context, |a, b| a | b)
 }
 
-fn not<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+pub fn not<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
     if let Some(a_cell) = context.stack.pop() {
         if let Cell::Integer(a_int) = &a_cell {
             context.stack.push(Cell::Integer(!*a_int));
@@ -702,7 +703,7 @@ fn not<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(),
     Ok(())
 }
 
-fn open_curly<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+pub fn open_curly<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
     let (word_name, name_len) = context.tib.next_word();
     if name_len == 0 {
         return Err(KrkErr::EmptyTib);
@@ -712,9 +713,8 @@ fn open_curly<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Res
     Ok(())
 }
 
-fn close_curly<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+pub fn close_curly<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
     if let Some(_) = context.compiling {
-        //TODO: put an END to compiling word
         // Store compiling word to current lexicon
         let lex_in_use = context.lex_in_use;
         let word = core::mem::replace(&mut context.compiling, None).unwrap();
@@ -730,12 +730,12 @@ fn close_curly<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Re
     }
 }
 
-fn open_parenth<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+pub fn open_parenth<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
     context.stack.start_stack();
     Ok(())
 }
 
-fn close_parenth<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+pub fn close_parenth<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
     if let Some(_) = context.stack.end_stack() {
         Ok(())
     }
@@ -744,7 +744,7 @@ fn close_parenth<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> 
     }    
 }
 
-fn flush<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+pub fn flush<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
     context.stack.empty();
     Ok(())
 }
