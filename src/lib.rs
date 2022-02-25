@@ -46,9 +46,7 @@ pub struct TIB<T: Iterator<Item=u8> + Sized>(T);
 
 impl<T: Iterator<Item=u8> + Sized> TIB<T> {
     /// Create a new TIB using a u8 iterator
-    pub fn new(reader: T) -> Self {
-        Self(reader)
-    }
+    pub fn new(reader: T) -> Self { Self(reader) }
 
     /// Return next word and word size in the TIB
     pub fn next_word(&mut self) -> (WordName, u8) {
@@ -187,30 +185,20 @@ impl AuxStack {
 pub struct Word<T: Iterator<Item=u8> + Sized> {
     pub name_len: u8,
     pub name: WordName,
+    ref_count: usize,
     immediate: bool,
     pub flavor: WordFlavor<T>,
 }
 
 impl<T: Iterator<Item=u8> + Sized> Word<T> {
-    pub fn from_parts(name: WordName, name_len: u8, immediate: bool, flavor: WordFlavor<T>) -> Self {
+    pub fn new(name: WordName, name_len: u8, immediate: bool, flavor: WordFlavor<T>) -> Self {
         Self {
             name_len,
             name,
+            ref_count: 1,
             immediate,
             flavor
         }
-    }
-
-    pub fn new_primitive(word_name: WordName, name_len: u8, immediate: bool, function: fn(&mut Interpreter<T>) -> Result<(), KrkErr>) -> Self {
-        Self::from_parts(word_name, name_len, immediate, WordFlavor::Primitive(PrimitiveWord::new(function)))
-    }
-
-    pub fn new_lexicon(word_name: WordName, name_len: u8,) -> Self {
-        Self::from_parts(word_name, name_len, false, WordFlavor::Lexicon(LexiconWord::new()))
-    }
-
-    pub fn new_defined(word_name: WordName, name_len: u8, immediate: bool) -> Self {
-        Self::from_parts(word_name, name_len, immediate, WordFlavor::Defined(DefinedWord::new()))
     }
 
     pub fn as_defined(&mut self) -> &mut DefinedWord {
@@ -235,7 +223,6 @@ pub type WordDefinition = [Cell; DEFINITION_SIZE];
 #[derive(Debug)]
 /// Defined word model
 pub struct DefinedWord {
-    ref_count: usize,
     code_len: u8,
     data_len: u8,
     pub definition: WordDefinition,
@@ -244,7 +231,6 @@ pub struct DefinedWord {
 impl DefinedWord {
     pub fn new() -> Self {
         Self {
-            ref_count: 1,
             code_len: 0,
             data_len: 0,
             definition: [Cell::Empty; DEFINITION_SIZE],
@@ -292,7 +278,6 @@ pub struct LinkWord {
 #[derive(Debug)]
 /// Lexicon word model
 pub struct LexiconWord {
-    ref_count: usize,
     imp: HashMap<WordName, usize>,
     dep: HashMap<WordName, usize>,
 }
@@ -300,7 +285,6 @@ pub struct LexiconWord {
 impl LexiconWord {
     pub fn new() -> Self {
         Self {
-            ref_count: 1,
             imp: HashMap::new(),
             dep: HashMap::new()
         }
@@ -327,6 +311,7 @@ impl LexiconWord {
 /// Words
 pub struct Words<T: Iterator<Item=u8> + Sized> {
     words: Vec::<Word<T>>,
+    //TODO: add a stack with free positions that can be reused
 }
 
 impl<T: Iterator<Item=u8> + Sized> Words<T> {
@@ -371,8 +356,9 @@ impl CEP {
     }
 
     pub fn next_cell<T: Iterator<Item=u8> + Sized>(&mut self, words: &mut Words<T>) -> Option<Cell> {
-        let word = words.word_at(self.word_index).expect("CEP trying to read from an empty word index");
-        let defined = word.as_defined();
+        let defined = words.word_at(self.word_index)
+            .expect("CEP trying to read from an empty word index")
+            .as_defined();
         if defined.code_len > self.cell_index {
             let index = self.cell_index as usize;
             self.cell_index += 1;
@@ -426,19 +412,16 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
             compiling: None,
         };
 
-        // Create Root lexicon
+        // Create Root lexicon, always at index 0
         let (word_name, name_len) = word_name_from_str("Root");
-        _self.root_lex = _self.words.add_word(Word::new_lexicon(word_name, name_len));
-        _self.lex_in_use = _self.root_lex;
+        _self.words.add_word(Word::new(word_name, name_len, false, WordFlavor::Lexicon(LexiconWord::new())));
         // Root needs a reference to itself to be able to run the "Root" word
-        let root_lexicon = _self.words.lexicon_at(_self.root_lex);
-        root_lexicon.add_word(word_name, _self.root_lex);
-        // Define list of primitive words inside Root
+        _self.words.lexicon_at(_self.root_lex).add_word(word_name, _self.root_lex);
         _self.define_core_words(&[
             ("+", false, plus), ("-", false, minus), ("*", false, star), ("/", false, slash), ("%", false, percent),
             ("<", false, smaller), ("=", false, equal), ("and", false, and), ("or", false, or), ("not", false, not),
             ("{", false, open_curly), ("}", true, close_curly), ("(", false, open_parenth), (")", false, close_parenth),
-            ("flush", false, flush), ("->aux", false, to_aux), ("aux->", false, from_aux),
+            ("flush", false, flush), ("size", false, size), ("->aux", false, to_aux), ("aux->", false, from_aux),
         ]);
         
         _self
@@ -450,7 +433,7 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
 
     pub fn define_primitive(&mut self, lexicon: usize, word_name: &str, immediate: bool, function: fn(&mut Interpreter<T>) -> Result<(), KrkErr>) -> usize {
         let (word_name, name_len) = word_name_from_str(word_name);
-        let word_index = self.words.add_word(Word::new_primitive(word_name, name_len, immediate, function));
+        let word_index = self.words.add_word(Word::new(word_name, name_len, immediate, WordFlavor::Primitive(PrimitiveWord::new(function))));
         let lex = self.words.lexicon_at(lexicon);
         lex.add_word(word_name, word_index);
         word_index
@@ -536,15 +519,9 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
     fn exec_word(&mut self, word_index: usize) -> Result<(), KrkErr> {
         let word = self.words.word_at(word_index).unwrap_or_else(|| panic!("Word not found at index {}", word_index));
         match &word.flavor {
-            WordFlavor::Defined(_) => {
-                self.current_cep = Some(CEP::new(word_index));
-            },
-            WordFlavor::Primitive(primitive) => {
-                (primitive.function)(self)?;
-            },
-            WordFlavor::Lexicon(_) => {
-                self.stack.push(Cell::WordRef(word_index));
-            },
+            WordFlavor::Defined(_) => self.current_cep = Some(CEP::new(word_index)),
+            WordFlavor::Primitive(primitive) => (primitive.function)(self)?,
+            WordFlavor::Lexicon(_) => self.stack.push(Cell::WordRef(word_index)),
             WordFlavor::Link(_) => {
                 // TODO: point to another word and try to execute
                 todo!("point to another word and try to execute")
@@ -709,7 +686,7 @@ pub fn open_curly<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) ->
     if name_len == 0 {
         return Err(KrkErr::EmptyTib);
     }
-    context.compiling = Some(Word::new_defined(word_name, name_len, false));
+    context.compiling = Some(Word::new(word_name, name_len, false, WordFlavor::Defined(DefinedWord::new())));
     context.exec_mode = false;
     Ok(())
 }
@@ -747,6 +724,11 @@ pub fn close_parenth<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>)
 
 pub fn flush<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
     context.stack.empty();
+    Ok(())
+}
+
+pub fn size<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    context.stack.push(Cell::Integer(context.stack.size() as KrkInt));
     Ok(())
 }
 
