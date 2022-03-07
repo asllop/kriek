@@ -15,4 +15,4 @@ Kriek received influences from all the programming languages I ever used (and li
 
 ## Introduction
 
-Kriek is a [stack-based](https://en.wikipedia.org/wiki/Stack-oriented_programming), [concatenative](https://en.wikipedia.org/wiki/Concatenative_programming_language)  programming language, designed to be easily embedded into other applications.
+Kriek is a [stack-based](https://en.wikipedia.org/wiki/Stack-oriented_programming), [concatenative](https://en.wikipedia.org/wiki/Concatenative_programming_language) programming language, designed to be easily embedded into other applications. For this purpose we provide implementations in Rust(no_std), Kotlin and Swift. This is possible because the Kriek interpreter is pretty small and simple, around 1k LOC, and most of the complexity is in the **prelude** (part of Kriek's standard library), that is writen in Kriek itself. Many features that in other languages are part of the core implementation, like variables, if-else statements or loops, in Kriek are just words defined in the prelude.

@@ -1,13 +1,21 @@
 /*
 TODO LIST:
-- ARC, allocs and words ! @
+- ARC, allocs and words ! @ ALLOC (only data) CALLOC (any cell) BALLOC (bytes)
 - Stack transfers
-- Primitive words: ${ } LITERAL DEF LEX . : TO AT $[ ]$
-- Lexicon unions and associated words
+- Primitive words: ${ } LITERAL DEF HERE JMP BRA INAT(NEXT) LIT[ ]LIT LITAT LEX . : TO AT $[ ]$
+- Lexicon unions and associated words (UNION IMPORT)
+*/
+
+/*
+TODO: Reformulació dels lexicons:
+- No tenim links ni dependències, les paraules han d'existir en el moment d'emprar-les.
+- Tenim una sola paraula, UNION, que uneix diversos lexicons en un. Això simplement uneix els "imp" de tots els lexicons en un de sol.
+- Si dos lexicons tenen la mateixa paraule, ens quedem amb l'última que unim.
 */
 
 #![no_std]
 
+#[macro_use]
 extern crate alloc;
 
 use hashbrown::HashMap;
@@ -38,6 +46,11 @@ pub enum KrkErr {
     EmptyTib,
     NotCompiling,
     WordNotFound,
+    WrongBuffer,
+    BufferNotFound,
+    IndexOutOfBounds,
+    CouldNotFree,
+    WrongSize,
     Other(&'static str, u16),
 }
 
@@ -79,11 +92,11 @@ pub type KrkFlt = f64;
 /// Data primitive
 #[derive(Clone, Copy, Debug)]
 pub enum Cell {
+    Empty,
     Integer(KrkInt),
     Float(KrkFlt),
-    WordRef(usize),
-    AllocRef(usize),
-    Empty,
+    WordRef(usize, usize),      // (Index of word, offset)
+    AllocRef(usize, usize),     // (Index of alloc, offset)
 }
 
 impl Cell {
@@ -102,6 +115,22 @@ impl Cell {
         }
         else {
             None
+        }
+    }
+
+    pub fn is_number(&self) -> bool {
+        match self {
+            Cell::Integer(_) | Cell::Float(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn as_integer(&self) -> KrkInt {
+        match self {
+            Cell::Integer(n) => *n,
+            Cell::Float(n) => *n as KrkInt,
+            Cell::WordRef(r, _) | Cell::AllocRef(r, _) => *r as KrkInt,
+            Cell::Empty => 0,
         }
     }
 }
@@ -141,11 +170,6 @@ impl Stack {
         }
     }
 
-    /// Empty current stack
-    pub fn empty(&mut self) {
-        self.stack.truncate(self.base);
-    }
-
     /// Push cell to current stack
     pub fn push(&mut self, cell: Cell) {
         self.stack.push(cell);
@@ -181,11 +205,111 @@ impl AuxStack {
     pub fn pop(&mut self) -> Option<Cell> { self.0.pop() }
 }
 
+#[derive(Debug)]
+/// Memory allocations
+pub struct Allocs {
+    allocs: Vec<Alloc>,
+    free: Vec<usize>,
+}
+
+impl Allocs {
+    pub fn new() -> Self {
+        Self {
+            allocs: Vec::new(),
+            free: Vec::new(),
+        }
+    }
+
+    pub fn alloc_at(&mut self, index: usize) -> Option<&mut Alloc> {
+        self.allocs.get_mut(index)
+    }
+
+    pub fn alloc(&mut self, size: usize) -> usize {
+        if let Some(alloc_index) = self.free.pop() {
+            self.allocs[alloc_index] = Alloc::new_alloc(size);
+            alloc_index
+        }
+        else {
+            self.allocs.push(Alloc::new_alloc(size));
+            self.allocs.len() - 1
+        }
+    }
+
+    pub fn balloc(&mut self, size: usize) -> usize {
+        if let Some(alloc_index) = self.free.pop() {
+            self.allocs[alloc_index] = Alloc::new_balloc(size);
+            alloc_index
+        }
+        else {
+            self.allocs.push(Alloc::new_balloc(size));
+            self.allocs.len() - 1
+        }
+    }
+
+    pub fn free(&mut self, alloc_index: usize) -> bool {
+        if let Some(alloc) = self.allocs.get(alloc_index) {
+            return match alloc.buffer {
+                AllocBuffer::Empty => false,
+                AllocBuffer::CellBuffer(_) => todo!("Implement CALLOC"),
+                AllocBuffer::ByteBuffer(_) | AllocBuffer::DataBuffer(_) => {
+                    self.allocs[alloc_index] = Alloc::new_empty();
+                    self.free.push(alloc_index);
+                    true
+                },
+            };
+        }
+        false
+    }
+
+    //TODO: implement CALLOC and CFREE
+}
+
+#[derive(Debug)]
+/// Dynamic memory model
+pub struct Alloc {
+    ref_count: usize,
+    buffer: AllocBuffer,
+}
+
+impl Alloc {
+    pub fn new_empty() -> Self {
+        Self {
+            ref_count: 0,
+            buffer: AllocBuffer::Empty,
+        }
+    }
+
+    pub fn new_alloc(size: usize) -> Self {
+        Self {
+            ref_count: 1,
+            buffer: AllocBuffer::DataBuffer(vec![Cell::Integer(0); size]),
+        }
+    }
+
+    pub fn new_balloc(size: usize) -> Self {
+        Self {
+            ref_count: 1,
+            buffer: AllocBuffer::ByteBuffer(vec![0; size]),
+        }
+    }
+
+    //TODO: implement CALLOC
+}
+
+#[derive(Debug)]
+/// Memory buffer
+pub enum AllocBuffer{
+    Empty,
+    CellBuffer(Vec<Cell>),
+    DataBuffer(Vec<Cell>),
+    ByteBuffer(Vec<u8>),
+}
+
 /// Word model
 pub struct Word<T: Iterator<Item=u8> + Sized> {
     pub name_len: u8,
     pub name: WordName,
-    ref_count: usize,
+    pub ref_count: usize,
     immediate: bool,
     pub flavor: WordFlavor<T>,
 }
@@ -310,8 +434,7 @@ impl LexiconWord {
 
 /// Words
 pub struct Words<T: Iterator<Item=u8> + Sized> {
-    words: Vec::<Word<T>>,
-    //TODO: add a stack with free positions that can be reused
+    words: Vec<Word<T>>,
 }
 
 impl<T: Iterator<Item=u8> + Sized> Words<T> {
@@ -387,6 +510,7 @@ impl ReturnStack {
 pub struct Interpreter<T: Iterator<Item=u8> + Sized> {
     tib: TIB<T>,
     pub words: Words<T>,
+    pub allocs: Allocs,
     pub stack: Stack,
     aux: AuxStack,
     ret: ReturnStack,
@@ -402,6 +526,7 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
         let mut _self = Self {
             tib: TIB::new(reader),
             words: Words::new(),
+            allocs: Allocs::new(),
             stack: Stack::new(),
             aux: AuxStack::new(),
             ret: ReturnStack::new(),
@@ -422,6 +547,7 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
             ("<", false, smaller), ("=", false, equal), ("and", false, and), ("or", false, or), ("not", false, not),
             ("{", false, open_curly), ("}", true, close_curly), ("(", false, open_parenth), (")", false, close_parenth),
             ("flush", false, flush), ("size", false, size), ("->aux", false, to_aux), ("aux->", false, from_aux),
+            ("!", false, mem_exlam), ("@", false, mem_at), ("offset", false, mem_offset), ("alloc", false, mem_alloc),
         ]);
         
         _self
@@ -499,7 +625,8 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
                         .as_mut()
                         .expect("No compiling word while in compilation mode")
                         .as_defined();
-                    compiling_word.compile_code(Cell::WordRef(word_index));
+                    word.ref_count += 1;
+                    compiling_word.compile_code(Cell::WordRef(word_index, 0));
                 }
             }
             else {
@@ -508,7 +635,7 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
                     todo!("try to find word in Root to compile")
                 }
                 else {
-                    //TODO: compile a dependency
+                    //TODO: compile a dependency (link)
                     todo!("compile a dependency")
                 }
             }
@@ -521,7 +648,7 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
         match &word.flavor {
             WordFlavor::Defined(_) => self.current_cep = Some(CEP::new(word_index)),
             WordFlavor::Primitive(primitive) => (primitive.function)(self)?,
-            WordFlavor::Lexicon(_) => self.stack.push(Cell::WordRef(word_index)),
+            WordFlavor::Lexicon(_) => self.stack.push(Cell::WordRef(word_index, 0)),
             WordFlavor::Link(_) => {
                 // TODO: point to another word and try to execute
                 todo!("point to another word and try to execute")
@@ -537,8 +664,8 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
                 // Cell available
                 match next_cell {
                     Cell::Empty => panic!("Executing an empty cell"),
-                    Cell::Integer(_) | Cell::Float(_) | Cell::AllocRef(_) => self.stack.push(next_cell),
-                    Cell::WordRef(w_index) => {
+                    Cell::Integer(_) | Cell::Float(_) | Cell::AllocRef(_,_) => self.stack.push(next_cell),
+                    Cell::WordRef(w_index,_) => {
                         if let Some(word) = self.words.word_at(w_index) {
                             match &word.flavor {
                                 WordFlavor::Defined(_) => {
@@ -578,6 +705,8 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
         }
     }
 }
+
+//TODO: primitives are responsible for updating the ref_count of objectes they handle (if they work with references).
 
 fn two_num_op_template<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>, int_op: fn(KrkInt, KrkInt) -> KrkInt, flt_op: fn(KrkFlt, KrkFlt) -> KrkFlt) -> Result<(), KrkErr> {
     if let (Some(b_cell), Some(a_cell)) = (context.stack.pop(), context.stack.pop()) {
@@ -723,7 +852,9 @@ pub fn close_parenth<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>)
 }
 
 pub fn flush<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
-    context.stack.empty();
+    while let Some(_dat) = context.stack.pop() {
+        //TODO: decrement ref_count of all droped values
+    }
     Ok(())
 }
 
@@ -749,5 +880,195 @@ pub fn from_aux<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> R
     }
     else {
         Err(KrkErr::AuxStackUnderun)
+    }
+}
+
+pub fn mem_exlam<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    if let (Some(ref_cell), Some(dat_cell)) = (context.stack.pop(), context.stack.pop()) {
+        match ref_cell {
+            Cell::AllocRef(alloc_ref, offset) => {
+                if let Some(alloc) = context.allocs.alloc_at(alloc_ref) {
+                    match &mut alloc.buffer {
+                        AllocBuffer::CellBuffer(_) => todo!("Implement CALLOC"),
+                        AllocBuffer::DataBuffer(buf) => {
+                            if buf.len() > offset {
+                                if dat_cell.is_number() {
+                                    buf[offset] = dat_cell;
+                                    Ok(())
+                                }
+                                else {
+                                    Err(KrkErr::WrongType)
+                                }
+                            }
+                            else {
+                                Err(KrkErr::IndexOutOfBounds)
+                            }
+                        },
+                        AllocBuffer::ByteBuffer(buf) => {
+                            if buf.len() > offset {
+                                if dat_cell.is_number() {
+                                    buf[offset] = dat_cell.as_integer() as u8;
+                                    Ok(())
+                                }
+                                else {
+                                    Err(KrkErr::WrongType)
+                                }
+                            }
+                            else {
+                                Err(KrkErr::IndexOutOfBounds)
+                            }
+                        },
+                        AllocBuffer::Empty => Err(KrkErr::WrongBuffer),
+                    }
+                }
+                else {
+                    Err(KrkErr::BufferNotFound)
+                }
+            },
+            Cell::WordRef(word_ref, offset) => {
+                if let Some(word) = context.words.word_at(word_ref) {
+                    if let WordFlavor::Defined(defined) = &mut word.flavor {
+                        if defined.data_len as usize > offset {
+                            let offset = DEFINITION_SIZE - 1 - offset;
+                            match &defined.definition[offset] {
+                                Cell::WordRef(_index, _) => {
+                                    // TODO: decrement RC and free if necssary
+                                    todo!("Implement WordRef dec RC and free")
+                                },
+                                Cell::AllocRef(index, _) => {
+                                    if let Some(alloc) = context.allocs.alloc_at(*index) {
+                                        if alloc.ref_count == 1 {
+                                            if !context.allocs.free(*index) {
+                                                return Err(KrkErr::CouldNotFree)
+                                            }
+                                        }
+                                    }
+                                },
+                                _ => {}
+                            }
+                            defined.definition[offset] = dat_cell;
+                            Ok(())
+                        }
+                        else {
+                            Err(KrkErr::IndexOutOfBounds)
+                        }
+                    }
+                    else {
+                        Err(KrkErr::WrongType)
+                    }
+                }
+                else {
+                    Err(KrkErr::WordNotFound)
+                }
+            },
+            _ => Err(KrkErr::WrongType),
+        }
+    }
+    else {
+        Err(KrkErr::StackUnderun)
+    }
+}
+
+pub fn mem_at<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    if let Some(ref_cell) = context.stack.pop() {
+        match ref_cell {
+            Cell::AllocRef(alloc_ref, offset) => {
+                if let Some(alloc) = context.allocs.alloc_at(alloc_ref) {
+                    match &mut alloc.buffer {
+                        AllocBuffer::CellBuffer(_) => todo!("Implement CALLOC"),
+                        AllocBuffer::DataBuffer(buf) => {
+                            if buf.len() > offset {
+                                context.stack.push(buf[offset]);
+                                Ok(())
+                            }
+                            else {
+                                Err(KrkErr::IndexOutOfBounds)
+                            }
+                        },
+                        AllocBuffer::ByteBuffer(buf) => {
+                            if buf.len() > offset {
+                                context.stack.push(Cell::Integer(buf[offset] as KrkInt));
+                                Ok(())
+                            }
+                            else {
+                                Err(KrkErr::IndexOutOfBounds)
+                            }
+                        },
+                        AllocBuffer::Empty => Err(KrkErr::WrongBuffer),
+                    }
+                }
+                else {
+                    Err(KrkErr::BufferNotFound)
+                }
+            },
+            Cell::WordRef(word_ref, offset) => {
+                if let Some(word) = context.words.word_at(word_ref) {
+                    if let WordFlavor::Defined(defined) = &mut word.flavor {
+                        if defined.data_len as usize > offset {
+                            let _offset = DEFINITION_SIZE - 1 - offset;
+                            todo!("Get data, increment RC and put into stack")
+                        }
+                        else {
+                            Err(KrkErr::IndexOutOfBounds)
+                        }
+                    }
+                    else {
+                        Err(KrkErr::WrongType)
+                    }
+                }
+                else {
+                    Err(KrkErr::WordNotFound)
+                }
+            },
+            _ => Err(KrkErr::WrongType),
+        }
+    }
+    else {
+        Err(KrkErr::StackUnderun)
+    }
+}
+
+pub fn mem_offset<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    if let (Some(ref_cell), Some(offset_cell)) = (context.stack.pop(), context.stack.pop()) {
+        if let Cell::Integer(offset) = offset_cell {
+            match ref_cell {
+                Cell::AllocRef(alloc_ref, current_offset) => {
+                    context.stack.push(Cell::AllocRef(alloc_ref, current_offset + offset as usize));
+                    Ok(())
+                },
+                Cell::WordRef(word_ref, current_offset) => {
+                    context.stack.push(Cell::WordRef(word_ref, current_offset + offset as usize));
+                    Ok(())
+                },
+                _ => Err(KrkErr::WrongType),
+            }
+        }
+        else {
+            Err(KrkErr::WrongType)
+        }
+    }
+    else {
+        Err(KrkErr::StackUnderun)
+    }
+}
+
+pub fn mem_alloc<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    if let Some(size_cell) = context.stack.pop() {
+        if let Cell::Integer(size) = size_cell {
+            if size > 0 {
+                let alloc_ref = context.allocs.alloc(size as usize);
+                context.stack.push(Cell::AllocRef(alloc_ref, 0));
+                Ok(())
+            }
+            else {
+                Err(KrkErr::WrongSize)
+            }
+        }
+        else {
+            Err(KrkErr::WrongType)
+        }
+    }
+    else {
+        Err(KrkErr::StackUnderun)
     }
 }

@@ -1,4 +1,4 @@
-use kriek::{Interpreter, KrkErr};
+use kriek::{Interpreter, KrkErr, WordFlavor};
 
 fn main() {
     let mut interpreter = Interpreter::new("
@@ -19,6 +19,12 @@ fn main() {
         stack_print
         aux->
         stack_print
+        flush
+
+        666, 2, 5 alloc, offset
+        stack_print
+        !
+        stack_print
     ".bytes());
 
     // Root lexicon is alwais at index 0
@@ -29,22 +35,29 @@ fn main() {
     while match interpreter.run_step() {
         Err(e) => { println!("Exception = {:?}", e); false },
         Ok(b) => b
-    } {
-        /*
-        println!("------------ DEBUG INFO ------------");
-        println!("{:#?}", interpreter.stack);
-        let mut i = 0;
-        while let Some(word) = interpreter.words.word_at(i) {
-            let word_name_str = unsafe {
-                let arr = core::slice::from_raw_parts(word.name.as_ptr(), word.name_len as usize);
-                core::str::from_utf8_unchecked(arr)
-            };
-            i += 1;
-            if let WordFlavor::Defined(defined_word) = &word.flavor {
-                println!("Word `{}` definition = {:?}", word_name_str, defined_word.definition);
-            }
+    } {}
+
+    println!("--------------------------------------");
+    let mut i = 0;
+    println!("--- Word:");
+    while let Some(word) = interpreter.words.word_at(i) {
+        let word_name_str = unsafe {
+            let arr = core::slice::from_raw_parts(word.name.as_ptr(), word.name_len as usize);
+            core::str::from_utf8_unchecked(arr)
+        };
+        match &word.flavor {
+            WordFlavor::Defined(w) => println!("({}) Word `{}` ref_count = {} definition = {:?}", i, word_name_str, word.ref_count, w.definition),
+            WordFlavor::Primitive(_) => println!("({}) Word `{}` ref_count = {} primitive",  i, word_name_str, word.ref_count),
+            WordFlavor::Lexicon(_) => println!("({}) Word `{}` ref_count = {} lexicon",  i, word_name_str, word.ref_count),
+            WordFlavor::Link(_) => println!("({}) Word `{}` ref_count = {} link",  i, word_name_str, word.ref_count),
         }
-        */
+        i += 1;
+    }
+    println!("--- Allocs:");
+    i = 0;
+    while let Some(alloc) = interpreter.allocs.alloc_at(i) {
+        println!("({}) alloc = {:?}", i, alloc);
+        i += 1;
     }
 }
 
