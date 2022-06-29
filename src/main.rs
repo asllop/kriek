@@ -39,7 +39,7 @@ fn main() {
 
     println!("--------------------------------------");
     let mut i = 0;
-    println!("--- Word:");
+    println!("--- Words:");
     while let Some(word) = interpreter.words.word_at(i) {
         let word_name_str = unsafe {
             let arr = core::slice::from_raw_parts(word.name.as_ptr(), word.name_len as usize);

@@ -1,16 +1,15 @@
 /*
 TODO LIST:
-- ARC, allocs and words ! @ ALLOC (only data) CALLOC (any cell) BALLOC (bytes)
 - Stack transfers
-- Primitive words: ${ } LITERAL DEF HERE JMP BRA INAT(NEXT) LIT[ ]LIT LITAT LEX . : TO AT $[ ]$
-- Lexicon unions and associated words (UNION IMPORT)
+- Lexicon stuff (LEX . : UNION IMPORT)
+- Other primitive words: ${ } TO AT DOES ME EXE SELF DEF LITERAL HERE JMP BRA INAT(rename to NEXT) LIT[ ]LIT LITAT $[ ]$ WEAK TIB
 */
 
 /*
 TODO: Reformulació dels lexicons:
-- No tenim links ni dependències, les paraules han d'existir en el moment d'emprar-les.
-- Tenim una sola paraula, UNION, que uneix diversos lexicons en un. Això simplement uneix els "imp" de tots els lexicons en un de sol.
-- Si dos lexicons tenen la mateixa paraule, ens quedem amb l'última que unim.
+- No tenim links ni dependències, les paraules han d'existir en el moment d'emprar-les. Eliminem "dep" dels lexicons.
+- Tenim una paraula, UNION, que uneix diversos lexicons en un. Això simplement uneix els "imp" de tots els lexicons en un de sol.
+- Si dos lexicons tenen la mateixa paraula, ens quedem amb l'última que unim.
 */
 
 #![no_std]
@@ -135,6 +134,16 @@ impl Cell {
     }
 }
 
+/*
+Reference count, podem passar la responsabilitat del RC a la pila?
+- Push sempre ha de fer in acquire
+- Però pop no, hi ha casos en que fem un pop d'una dada per guardar-la a un altre lloc i no volem tocar RC.
+- Podem crear consume(), que fa un release de la dada.
+
+Altres utilitats de pila:
+- pop/consume_TYPE() per a llegir una dada d'un tipus concret, retorna un Result<TYPE, Err>
+*/
+
 #[derive(Debug)]
 /// Stack structure
 pub struct Stack {
@@ -246,14 +255,12 @@ impl Allocs {
         }
     }
 
-    pub fn free(&mut self, alloc_index: usize) -> bool {
+    pub fn acquire(&mut self, alloc_index: usize) -> bool {
         if let Some(alloc) = self.allocs.get(alloc_index) {
             return match alloc.buffer {
                 AllocBuffer::Empty => false,
-                AllocBuffer::CellBuffer(_) => todo!("Implement CALLOC"),
-                AllocBuffer::ByteBuffer(_) | AllocBuffer::DataBuffer(_) => {
-                    self.allocs[alloc_index] = Alloc::new_empty();
-                    self.free.push(alloc_index);
+                AllocBuffer::ByteBuffer(_) | AllocBuffer::DataBuffer(_) | AllocBuffer::CellBuffer(_) => {
+                    self.allocs[alloc_index].ref_count += 1;
                     true
                 },
             };
@@ -261,7 +268,27 @@ impl Allocs {
         false
     }
 
-    //TODO: implement CALLOC and CFREE
+    pub fn release(&mut self, alloc_index: usize) -> bool {
+        if let Some(alloc) = self.allocs.get(alloc_index) {
+            return match alloc.buffer {
+                AllocBuffer::Empty => false,
+                AllocBuffer::CellBuffer(_) => todo!("Implement CALLOC"),
+                AllocBuffer::ByteBuffer(_) | AllocBuffer::DataBuffer(_) => {
+                    if self.allocs[alloc_index].ref_count == 1 {
+                        self.allocs[alloc_index] = Alloc::new_empty();
+                        self.free.push(alloc_index);
+                        true
+                    }
+                    else {
+                        false
+                    }
+                },
+            };
+        }
+        false
+    }
+
+    //TODO: implement CALLOC stuff
 }
 
 #[derive(Debug)]
@@ -402,7 +429,9 @@ pub struct LinkWord {
 #[derive(Debug)]
 /// Lexicon word model
 pub struct LexiconWord {
+    // TODO: rename to "dictionary"
     imp: HashMap<WordName, usize>,
+    // TODO: remove dep
     dep: HashMap<WordName, usize>,
 }
 
@@ -461,6 +490,8 @@ impl<T: Iterator<Item=u8> + Sized> Words<T> {
         }
         panic!("Word at index {} is not a lexicon", index);
     }
+
+    //TODO: implement word acquire and release
 }
 
 #[derive(Clone, Copy)]
@@ -625,7 +656,7 @@ impl<T: Iterator<Item=u8> + Sized> Interpreter<T> {
                         .as_mut()
                         .expect("No compiling word while in compilation mode")
                         .as_defined();
-                    word.ref_count += 1;
+                    word.ref_count += 1; // manual acquire
                     compiling_word.compile_code(Cell::WordRef(word_index, 0));
                 }
             }
@@ -852,8 +883,12 @@ pub fn close_parenth<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>)
 }
 
 pub fn flush<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
-    while let Some(_dat) = context.stack.pop() {
-        //TODO: decrement ref_count of all droped values
+    while let Some(dat) = context.stack.pop() {
+        match dat {
+            Cell::WordRef(_index, _) => { /*TODO: free word*/ },
+            Cell::AllocRef(index, _) => { context.allocs.release(index); },
+            _ => {},
+        }
     }
     Ok(())
 }
@@ -883,7 +918,14 @@ pub fn from_aux<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> R
     }
 }
 
+//TODO: hem consumit una ref de la pila sense decrementar RC
 pub fn mem_exlam<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    /*TODO
+    - Pop ref cell and dat cell, release() ref cell, if free, do nothing and end.
+    - If not free:
+      - Put dat cell at ref offset.
+      - If offset contained a ref, release() it.
+     */
     if let (Some(ref_cell), Some(dat_cell)) = (context.stack.pop(), context.stack.pop()) {
         match ref_cell {
             Cell::AllocRef(alloc_ref, offset) => {
@@ -936,12 +978,8 @@ pub fn mem_exlam<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> 
                                     todo!("Implement WordRef dec RC and free")
                                 },
                                 Cell::AllocRef(index, _) => {
-                                    if let Some(alloc) = context.allocs.alloc_at(*index) {
-                                        if alloc.ref_count == 1 {
-                                            if !context.allocs.free(*index) {
-                                                return Err(KrkErr::CouldNotFree)
-                                            }
-                                        }
+                                    if let Some(_) = context.allocs.alloc_at(*index) {
+                                        context.allocs.release(*index);
                                     }
                                 },
                                 _ => {}
@@ -969,7 +1007,14 @@ pub fn mem_exlam<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> 
     }
 }
 
+//TODO: hem consumit una ref de la pila sense decrementar RC
 pub fn mem_at<T: Iterator<Item=u8> + Sized>(context: &mut Interpreter<T>) -> Result<(), KrkErr> {
+    /*TODO
+    - Pop ref cell and release(), if free, do nothing and end.
+    - If not free:
+      - Read data at ref.
+      - If data read is a ref, acquire().
+     */
     if let Some(ref_cell) = context.stack.pop() {
         match ref_cell {
             Cell::AllocRef(alloc_ref, offset) => {
